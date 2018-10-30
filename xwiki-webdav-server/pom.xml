@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+ * See the NOTICE file distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation; either version 2.1 of
+ * the License, or (at your option) any later version.
+ *
+ * This software is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this software; if not, write to the Free
+ * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+ * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+-->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.xwiki.contrib</groupId>
+    <artifactId>xwiki-webdav</artifactId>
+    <version>9.5-SNAPSHOT</version>
+  </parent>
+  <artifactId>xwiki-webdav-server</artifactId>
+  <packaging>jar</packaging>
+  <name>XWiki Contrib - WebDAV - Server</name>
+  <description>Service for accessing XWiki through WebDAV</description>
+  <properties>
+    <!-- Name to display by the Extension Manager -->
+    <xwiki.extension.name>WebDAV Server</xwiki.extension.name>
+    <!-- alias for previous platform versions -->
+    <xwiki.extension.features>org.xwiki.platform:xwiki-platform-webdav-server</xwiki.extension.features>
+  </properties>
+  <url>http://extensions.xwiki.org/xwiki/bin/view/Extension/WebDAV%20Server</url>
+  <dependencies>
+    <dependency>
+      <groupId>javax.servlet</groupId>
+      <artifactId>javax.servlet-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-lang3</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.jackrabbit</groupId>
+      <artifactId>jackrabbit-jcr-server</artifactId>
+      <version>${jackrabbit.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.jackrabbit</groupId>
+      <artifactId>jackrabbit-webdav</artifactId>
+      <version>${jackrabbit.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.xwiki.platform</groupId>
+      <artifactId>xwiki-platform-oldcore</artifactId>
+      <version>${platform.version}</version>
+    </dependency>
+  </dependencies>
+  <build>
+    <plugins>
+      <plugin>
+        <!-- Apply the Checkstyle configurations defined in the top level pom.xml file -->
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <executions>
+          <execution>
+            <!-- Specify the "default" execution id so that the "blocker" one is always executed -->
+            <id>default</id>
+            <configuration>
+              <excludes>
+                org/xwiki/contrib/plugin/webdav/resources/domain/DavPage.java,
+                org/xwiki/contrib/plugin/webdav/resources/domain/DavTempFile.java,
+                org/xwiki/contrib/plugin/webdav/resources/domain/DavWikiFile.java,
+                org/xwiki/contrib/plugin/webdav/resources/partial/AbstractDavResource.java,
+                org/xwiki/contrib/plugin/webdav/resources/views/attachments/AttachmentsByFirstLettersSubView.java,
+                org/xwiki/contrib/plugin/webdav/resources/views/attachments/AttachmentsBySpaceNameSubView.java,
+                org/xwiki/contrib/plugin/webdav/resources/views/attachments/AttachmentsView.java,
+                org/xwiki/contrib/plugin/webdav/resources/views/OrphansView.java,
+                org/xwiki/contrib/plugin/webdav/resources/views/pages/PagesByFirstLettersSubView.java,
+                org/xwiki/contrib/plugin/webdav/resources/views/pages/PagesBySpaceNameSubView.java,
+                org/xwiki/contrib/plugin/webdav/resources/views/pages/PagesView.java,
+                org/xwiki/contrib/plugin/webdav/resources/views/RootView.java,
+                org/xwiki/contrib/plugin/webdav/resources/views/WhatsnewView.java,
+                org/xwiki/contrib/plugin/webdav/resources/XWikiDavResource.java,
+                org/xwiki/contrib/plugin/webdav/utils/XWikiDavContext.java,
+                org/xwiki/contrib/plugin/webdav/utils/XWikiDavResourceFactory.java,
+                org/xwiki/contrib/plugin/webdav/utils/XWikiDavUserStorage.java,
+                org/xwiki/contrib/plugin/webdav/XWikiDavServlet.java
+              </excludes>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

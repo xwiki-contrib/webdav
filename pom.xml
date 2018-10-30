@@ -21,25 +21,81 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
-    <groupId>org.xwiki.platform</groupId>
-    <artifactId>xwiki-platform-core</artifactId>
-    <version>9.5-SNAPSHOT</version>
+    <groupId>org.xwiki.contrib</groupId>
+    <artifactId>parent-platform</artifactId>
+    <version>9.8.1</version>
   </parent>
-  <artifactId>xwiki-platform-webdav</artifactId>
-  <name>XWiki Platform - WebDAV - Parent POM</name>
+  <groupId>org.xwiki.contrib</groupId>
+  <artifactId>xwiki-webdav</artifactId>
+  <version>9.5-SNAPSHOT</version>
+  <name>XWiki Contrib - WebDAV - Parent POM</name>
   <packaging>pom</packaging>
   <properties>
     <jackrabbit.version>1.4</jackrabbit.version>
+    <xwiki.release.jira.skip>false</xwiki.release.jira.skip>
+    <xwiki.issueManagement.jira.id>WEBDAV</xwiki.issueManagement.jira.id>
   </properties>
   <modules>
-    <module>xwiki-platform-webdav-server</module>
-    <module>xwiki-platform-webdav-ui</module>
+    <module>xwiki-webdav-server</module>
+    <module>xwiki-webdav-ui</module>
   </modules>
+  <scm>
+    <connection>scm:git:git://github.com/xwiki-contrib/webdav.git</connection>
+    <developerConnection>scm:git:git@github.com:xwiki-contrib/webdav.git</developerConnection>
+    <url>https://github.com/xwiki-contrib/webdav/tree/master/</url>
+    <tag>HEAD</tag>
+  </scm>
+  <developers>
+    <developer>
+      <id>cjdelisle</id>
+      <name>Caleb James DeLisle</name>
+    </developer>
+    <developer>
+      <id>evalica</id>
+      <name>Ecaterina Moraru (Valica)</name>
+    </developer>
+    <developer>
+      <id>enygma</id>
+      <name>Eduard Moraru</name>
+    </developer>
+    <developer>
+      <id>gdelhumeau</id>
+      <name>Guillaume Delhumeau</name>
+    </developer>
+    <developer>
+      <id>jvdrean</id>
+      <name>Jean-Vincent Drean</name>
+    </developer>
+    <developer>
+      <id>jvelo</id>
+      <name>Jerome Velociter</name>
+    </developer>
+    <developer>
+      <id>mflorea</id>
+      <name>Marius Dumitru Florea</name>
+    </developer>
+    <developer>
+      <id>sdumitriu</id>
+      <name>Sergiu Dumitriu</name>
+    </developer>
+    <developer>
+      <id>tmortagne</id>
+      <name>Thomas Mortagne</name>
+    </developer>
+    <developer>
+      <id>vmassol</id>
+      <name>Vincent Massol</name>
+    </developer>
+  </developers>
+  <issueManagement>
+    <system>jira</system>
+    <url>https://jira.xwiki.org/browse/WEBDAV</url>
+  </issueManagement>
   <profiles>
     <profile>
       <id>integration-tests</id>
       <modules>
-        <module>xwiki-platform-webdav-test</module>
+        <module>xwiki-webdav-test</module>
       </modules>
     </profile>
   </profiles>
