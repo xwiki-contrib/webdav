@@ -75,24 +75,24 @@
             <id>default</id>
             <configuration>
               <excludes>
-                org/xwiki/contrib/plugin/webdav/resources/domain/DavPage.java,
-                org/xwiki/contrib/plugin/webdav/resources/domain/DavTempFile.java,
-                org/xwiki/contrib/plugin/webdav/resources/domain/DavWikiFile.java,
-                org/xwiki/contrib/plugin/webdav/resources/partial/AbstractDavResource.java,
-                org/xwiki/contrib/plugin/webdav/resources/views/attachments/AttachmentsByFirstLettersSubView.java,
-                org/xwiki/contrib/plugin/webdav/resources/views/attachments/AttachmentsBySpaceNameSubView.java,
-                org/xwiki/contrib/plugin/webdav/resources/views/attachments/AttachmentsView.java,
-                org/xwiki/contrib/plugin/webdav/resources/views/OrphansView.java,
-                org/xwiki/contrib/plugin/webdav/resources/views/pages/PagesByFirstLettersSubView.java,
-                org/xwiki/contrib/plugin/webdav/resources/views/pages/PagesBySpaceNameSubView.java,
-                org/xwiki/contrib/plugin/webdav/resources/views/pages/PagesView.java,
-                org/xwiki/contrib/plugin/webdav/resources/views/RootView.java,
-                org/xwiki/contrib/plugin/webdav/resources/views/WhatsnewView.java,
-                org/xwiki/contrib/plugin/webdav/resources/XWikiDavResource.java,
-                org/xwiki/contrib/plugin/webdav/utils/XWikiDavContext.java,
-                org/xwiki/contrib/plugin/webdav/utils/XWikiDavResourceFactory.java,
-                org/xwiki/contrib/plugin/webdav/utils/XWikiDavUserStorage.java,
-                org/xwiki/contrib/plugin/webdav/XWikiDavServlet.java
+                org/xwiki/contrib/webdav/resources/domain/DavPage.java,
+                org/xwiki/contrib/webdav/resources/domain/DavTempFile.java,
+                org/xwiki/contrib/webdav/resources/domain/DavWikiFile.java,
+                org/xwiki/contrib/webdav/resources/partial/AbstractDavResource.java,
+                org/xwiki/contrib/webdav/resources/views/attachments/AttachmentsByFirstLettersSubView.java,
+                org/xwiki/contrib/webdav/resources/views/attachments/AttachmentsBySpaceNameSubView.java,
+                org/xwiki/contrib/webdav/resources/views/attachments/AttachmentsView.java,
+                org/xwiki/contrib/webdav/resources/views/OrphansView.java,
+                org/xwiki/contrib/webdav/resources/views/pages/PagesByFirstLettersSubView.java,
+                org/xwiki/contrib/webdav/resources/views/pages/PagesBySpaceNameSubView.java,
+                org/xwiki/contrib/webdav/resources/views/pages/PagesView.java,
+                org/xwiki/contrib/webdav/resources/views/RootView.java,
+                org/xwiki/contrib/webdav/resources/views/WhatsnewView.java,
+                org/xwiki/contrib/webdav/resources/XWikiDavResource.java,
+                org/xwiki/contrib/webdav/utils/XWikiDavContext.java,
+                org/xwiki/contrib/webdav/utils/XWikiDavResourceFactory.java,
+                org/xwiki/contrib/webdav/utils/XWikiDavUserStorage.java,
+                org/xwiki/contrib/webdav/XWikiDavServlet.java
               </excludes>
             </configuration>
           </execution>
