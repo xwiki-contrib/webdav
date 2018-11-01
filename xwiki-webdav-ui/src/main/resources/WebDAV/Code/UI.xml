@@ -20,15 +20,15 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
 -->
 
-<xwikidoc version="1.1">
-  <web>XWiki</web>
-  <name>WebDAV</name>
+<xwikidoc version="1.3" reference="WebDAV.Code.UI" locale="">
+  <web>WebDAV.Code</web>
+  <name>UI</name>
   <language/>
   <defaultLanguage/>
   <translation>0</translation>
   <creator>xwiki:XWiki.Admin</creator>
   <creationDate>1231841324000</creationDate>
-  <parent>XWiki.WebHome</parent>
+  <parent>WebDAV.Code.WebHome</parent>
   <author>xwiki:XWiki.Admin</author>
   <contentAuthor>xwiki:XWiki.Admin</contentAuthor>
   <date>1325884514000</date>
@@ -39,12 +39,12 @@
   <minorEdit>false</minorEdit>
   <syntaxId>xwiki/2.1</syntaxId>
   <hidden>true</hidden>
-  <content>{{info}}{{velocity}}$services.localization.render('xe.webdav.info'){{/velocity}}{{/info}}</content>
+  <content>{{info}}{{velocity}}$services.localization.render('webdav.page.info'){{/velocity}}{{/info}}</content>
   <object>
-    <name>XWiki.WebDAV</name>
+    <name>WebDAV.Code.UI</name>
     <number>0</number>
     <className>XWiki.JavaScriptExtension</className>
-    <guid>e164508e-ef2c-45d1-9620-b82f16fb27bb</guid>
+    <guid>ee7a5f28-964d-42a0-beb7-6f86852ec093</guid>
     <class>
       <name>XWiki.JavaScriptExtension</name>
       <customClass/>
@@ -71,7 +71,9 @@
         <classType>com.xpn.xwiki.objects.classes.StaticListClass</classType>
       </cache>
       <code>
+        <contenttype>PureText</contenttype>
         <disabled>0</disabled>
+        <editor>PureText</editor>
         <name>code</name>
         <number>2</number>
         <prettyName>Code</prettyName>
@@ -138,13 +140,13 @@ XWiki.WebDAV = {
       try {
         editor = new window.ActiveXObject("SharePoint.OpenDocuments");
       } catch (err) {
-        window.alert("$services.localization.render('xe.webdav.initialize.activex')");
+        window.alert("$services.localization.render('webdav.alert.initialize.activex')");
         return;
       }
       if (editor) {
         editor.EditDocument(davURL);
       } else {
-        window.alert("$('xe.webdav.initialize.error')");
+        window.alert("$services.localization.render('webdav.alert.error')");
         return;
       }
     } else if (window.InstallTrigger) {
@@ -157,15 +159,15 @@ XWiki.WebDAV = {
         evt.initEvent("FoXWikiDomEvent", true, false);
         element.dispatchEvent(evt);
         if (element.getAttribute("foxwiki") == "false") {
-          if (window.confirm("$services.localization.render('xe.webdav.install.foxwiki')")) {
+          if (window.confirm("$services.localization.render('webdav.dialog.install.foxwiki')")) {
             window.InstallTrigger.install( {"FoXWiki" :"https://addons.mozilla.org/en-US/firefox/downloads/file/39674/foxwiki-1.0b-fx.xpi"});
           }
         }
       } else {
-        window.alert("$services.localization.render('xe.webdav.error')");
+        window.alert("$services.localization.render('webdav.alert.error')");
       }
     } else {
-      window.alert("$services.localization.render('xe.webdav.sorry')");
+      window.alert("$services.localization.render('webdav.alert.sorry')");
     }
   }
 };
@@ -180,7 +182,7 @@ return XWiki;
       <parse>1</parse>
     </property>
     <property>
-      <use>onDemand</use>
+      <use>always</use>
     </property>
   </object>
 </xwikidoc>
