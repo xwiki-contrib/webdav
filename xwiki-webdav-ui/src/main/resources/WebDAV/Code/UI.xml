@@ -124,14 +124,35 @@
     <property>
       <code>var XWiki = (function (XWiki) {
 // Start XWiki augmentation.
-function displayDavLink(node) {
-  node.down("a[class*='editlink']").removeClassName("hidden");
-}
 XWiki.WebDAV = {
-  displayDavLinks: function(domNode) {
-    // un-hide Dav links only if the browser is going to support it
+
+  addDavLinks: function(domNode) {
+
+    function displayDavLink(node) {
+      var davLink = new Element('a');
+      davLink.insert(new Element('span').addClassName("fa fa-pencil-square-o"));
+      davLink.addClassName("btn btn-xs btn-default");
+      var davUrl = XWiki.contextPath + '/webdav/spaces/'
+      for (var i = 0; i &lt; XWiki.currentDocument.spaces.length; i++) {
+        davUrl = davUrl + escape(XWiki.currentDocument.spaces[i]).replace(/\//g,'%2F') +'/'
+      }
+      davUrl = davUrl + escape(XWiki.currentDocument.page).replace(/\//g,'%2F') +'/'
+      // there is no API to get the "current" attachment name from the list
+      // try to extract it from the download link
+      var downloadLink = node.down("div.information").down('span.name').down('a');
+      davUrl = davUrl + downloadLink.getAttribute('href').replace(/.*\//,'');
+
+      davLink.setAttribute("href", davUrl);
+      node.down("div[class*='btn-group xwikibuttonlinks']").insert({ 'top' : davLink});
+      Event.observe(davLink, 'click', function(event) {
+        event.stop();
+        XWiki.WebDAV.davEdit(this.getAttribute('href'));
+      });
+    }
+
+    // add Dav links only if the browser is going to support it
     if(window.ActiveXObject || window.InstallTrigger) {
-      domNode.select(".attachment").each(displayDavLink);
+      domNode &amp;&amp; domNode.select(".attachment").each(displayDavLink);
     }
   },
   davEdit: function(davURL) {
@@ -173,7 +194,22 @@ XWiki.WebDAV = {
 };
 // End XWiki augmentation.
 return XWiki;
-}(XWiki || {}));</code>
+}(XWiki || {}));
+
+function initWebDAV() {
+  function checkAttachmentLoaded(event) {
+    if (event &amp;&amp; event.memo.id != "Attachments") {
+      return;
+    }
+    var attContainer = document.getElementById("attachmentscontent");
+    if (attContainer) {
+      XWiki.WebDAV.addDavLinks(attContainer);
+    }
+  }
+  checkAttachmentLoaded();
+  document.observe("xwiki:docextra:loaded", checkAttachmentLoaded);
+}
+(XWiki.domIsLoaded &amp;&amp; initWebDAV()) || document.observe("xwiki:dom:loaded", initWebDAV);</code>
     </property>
     <property>
       <name>WebDAVJSX</name>
