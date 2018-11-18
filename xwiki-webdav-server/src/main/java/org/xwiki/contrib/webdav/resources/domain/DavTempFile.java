@@ -38,6 +38,7 @@ import org.apache.jackrabbit.webdav.property.DavPropertyName;
 import org.apache.jackrabbit.webdav.property.DefaultDavProperty;
 import org.xwiki.contrib.webdav.resources.XWikiDavResource;
 import org.xwiki.contrib.webdav.resources.partial.AbstractDavResource;
+import org.xwiki.model.reference.EntityReference;
 
 /**
  * Resource used to represent temporary resources demanded by various dav clients.
@@ -109,6 +110,17 @@ public class DavTempFile extends AbstractDavResource
     {
         return parentResource.getVirtualMembers().contains(this);
     }
+
+    /**
+     * a temporary file has no associated entity reference.
+     */
+    // XXX or maybe it should?
+    @Override
+    public EntityReference getReference()
+    {
+        return null;
+    }
+
 
     @Override
     public void spool(OutputContext outputContext) throws IOException

@@ -38,6 +38,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xwiki.contrib.webdav.resources.XWikiDavResource;
 import org.xwiki.contrib.webdav.resources.partial.AbstractDavResource;
+import org.xwiki.model.reference.DocumentReference;
 
 import com.xpn.xwiki.doc.XWikiDocument;
 
@@ -54,33 +55,34 @@ public class DavPage extends AbstractDavResource
     private static final Logger logger = LoggerFactory.getLogger(DavPage.class);
 
     /**
-     * The name of the space to which this page belongs to.
-     */
-    private String spaceName;
-
-    /**
      * The {@link XWikiDocument} represented by this resource.
      */
     private XWikiDocument doc;
+
+    /**
+     * The {@link DocumentReference} for the document referenced by this resource.
+     */
+    private DocumentReference docRef;
 
     @Override
     public void init(XWikiDavResource parent, String name, String relativePath) throws DavException
     {
         super.init(parent, name, relativePath);
-        int dot = name.lastIndexOf('.');
-        if (dot != -1) {
-            this.spaceName = name.substring(0, dot);
-        } else {
+
+        // we should get a full path here
+        docRef = getContext().getDocumentReference(this.name);
+        if (docRef.getLastSpaceReference() == null) {
             throw new DavException(DavServletResponse.SC_BAD_REQUEST);
         }
-        this.doc = getContext().getDocument(this.name);
+
+        this.doc = getContext().getDocument(docRef);
         String timeStamp = DavConstants.creationDateFormat.format(doc.getCreationDate());
         getProperties().add(new DefaultDavProperty(DavPropertyName.CREATIONDATE, timeStamp));
         timeStamp = DavConstants.modificationDateFormat.format(doc.getContentUpdateDate());
         getProperties().add(new DefaultDavProperty(DavPropertyName.GETLASTMODIFIED, timeStamp));
         getProperties().add(new DefaultDavProperty(DavPropertyName.GETETAG, timeStamp));
         getProperties().add(new DefaultDavProperty(DavPropertyName.GETCONTENTTYPE, "text/directory"));
-        getProperties().add(new DefaultDavProperty(DavPropertyName.GETCONTENTLANGUAGE, doc.getLanguage()));
+        getProperties().add(new DefaultDavProperty(DavPropertyName.GETCONTENTLANGUAGE, doc.getLocale().toString()));
         getProperties().add(new DefaultDavProperty(DavPropertyName.GETCONTENTLENGTH, 0));
     }
 
@@ -101,10 +103,14 @@ public class DavPage extends AbstractDavResource
             resource = new DavAttachment();
             resource.init(this, nextToken, relativePath);
         } else {
-            int dot = nextToken.indexOf('.');
-            String pageName = (dot != -1) ? nextToken : this.spaceName + "." + nextToken;
+            // children pages: if they are in the same space as the current page, we get a relative path, otherwise a
+            // full one. try to distinguish between both cases
+            DocumentReference nextDocRef = getContext().getDocumentReference(nextToken);
+            if (nextDocRef.getLastSpaceReference() == null) {
+                nextDocRef = new DocumentReference(nextDocRef.getName(), docRef.getLastSpaceReference());
+            }
             resource = new DavPage();
-            resource.init(this, pageName, relativePath);
+            resource.init(this, getContext().serialize(nextDocRef), relativePath);
         }
         return last ? resource : resource.decode(tokens, next + 1);
     }
@@ -115,36 +121,40 @@ public class DavPage extends AbstractDavResource
         return !doc.isNew();
     }
 
-    @SuppressWarnings("unchecked")
+    @Override
+    public DocumentReference getReference()
+    {
+        return docRef;
+    }
+
+    /**
+     * the members of a page are both its subpages in the old parent - child relation and the attachments of that page.
+     */
     @Override
     public DavResourceIterator getMembers()
     {
         // Protect against direct url referencing.
         List<DavResource> children = new ArrayList<DavResource>();
-        if (!getContext().hasAccess("view", this.name)) {
+        if (!getContext().hasAccess("view", this.docRef)) {
             return new DavResourceIteratorImpl(children);
         }
         try {
-            String sql = "where doc.parent='" + this.name + "'";
-            List<String> docNames = getContext().searchDocumentsNames(sql);
-            for (String docName : docNames) {
-                if (!createsCycle(docName) && getContext().hasAccess("view", docName)) {
-                    XWikiDocument childDoc = getContext().getDocument(docName);
+            List<DocumentReference> childReferences = getContext().getChildPages(docRef);
+            for (DocumentReference childReference : childReferences) {
+                String childDocName = getContext().serialize(childReference);
+                if (!createsCycle(childDocName) && getContext().hasAccess("view", childReference)) {
                     DavPage page = new DavPage();
-                    if (childDoc.getSpace().equals(this.spaceName)) {
-                        page.init(this, docName, "/" + childDoc.getName());
+
+                    if (childReference.getLastSpaceReference().equals(this.docRef.getLastSpaceReference())) {
+                        page.init(this, childDocName, "/" + childReference.getName());
                     } else {
-                        page.init(this, docName, "/" + docName);
+                        page.init(this, childDocName, "/" + childDocName);
                     }
                     children.add(page);
                 }
             }
-            sql =
-                "select attach.filename from XWikiAttachment as attach, "
-                    + "XWikiDocument as doc where attach.docId=doc.id and doc.fullName='" + this.name + "'";
-            List attachments = getContext().search(sql);
-            for (int i = 0; i < attachments.size(); i++) {
-                String filename = (String) attachments.get(i);
+            List<String> filenames = getContext().getAttachmentsForPage(docRef);
+            for (String filename : filenames) {
                 DavAttachment attachment = new DavAttachment();
                 attachment.init(this, filename, "/" + filename);
                 children.add(attachment);
@@ -159,16 +169,16 @@ public class DavPage extends AbstractDavResource
     @Override
     public void addMember(DavResource resource, InputContext inputContext) throws DavException
     {
-        getContext().checkAccess("edit", this.name);
+        getContext().checkAccess("edit", this.docRef);
         boolean isFile = (inputContext.getInputStream() != null);
         if (resource instanceof DavTempFile) {
             addVirtualMember(resource, inputContext);
         } else if (resource instanceof DavPage) {
-            String pName = resource.getDisplayName();
+            DocumentReference pName = ((DavPage) resource).getReference();
             getContext().checkAccess("edit", pName);
             XWikiDocument childDoc = getContext().getDocument(pName);
             childDoc.setContent("This page was created through the WebDAV interface.");
-            childDoc.setParent(this.name);
+            childDoc.setParentReference(this.docRef);
             getContext().saveDocument(childDoc);
         } else if (isFile) {
             String fName = resource.getDisplayName();
@@ -189,19 +199,19 @@ public class DavPage extends AbstractDavResource
     @Override
     public void removeMember(DavResource member) throws DavException
     {
-        getContext().checkAccess("edit", this.name);
+        getContext().checkAccess("edit", docRef);
         XWikiDavResource dResource = (XWikiDavResource) member;
         String mName = dResource.getDisplayName();
         if (dResource instanceof DavTempFile) {
             removeVirtualMember(dResource);
         } else if (dResource instanceof DavWikiFile) {
-            getContext().checkAccess("delete", this.name);
+            getContext().checkAccess("delete", docRef);
             removeVirtualMember(dResource);
         } else if (dResource instanceof DavAttachment) {
             getContext().deleteAttachment(doc.getAttachment(mName));
         } else if (dResource instanceof DavPage) {
-            XWikiDocument childDoc = getContext().getDocument(mName);
-            getContext().checkAccess("delete", childDoc.getFullName());
+            XWikiDocument childDoc = getContext().getDocument(docRef);
+            getContext().checkAccess("delete", childDoc.getDocumentReference());
             if (!childDoc.isNew()) {
                 getContext().deleteDocument(childDoc);
             }
@@ -216,25 +226,25 @@ public class DavPage extends AbstractDavResource
     {
         // Renaming a page requires edit rights on the current document, overwrite rights on the
         // target document and edit rights on all the children of current document.
-        getContext().checkAccess("edit", this.name);
+        getContext().checkAccess("edit", this.docRef);
         if (destination instanceof DavPage) {
             DavPage dPage = (DavPage) destination;
             XWikiDocument dDoc = dPage.getDocument();
-            List<String> spaces = getContext().getSpaces();
-            if (spaces.contains(dDoc.getSpace())) {
-                String newDocName = dDoc.getFullName();
-                String sql = "where doc.parent='" + this.name + "'";
-                List<String> childDocNames = getContext().searchDocumentsNames(sql);
+            // XXX: why this check?
+            // do we really need the new parent space to exist?
+            if (getContext().spaceExists(dPage.getReference().getLastSpaceReference())) {
+                DocumentReference newDocName = dDoc.getDocumentReference();
+                List<DocumentReference> childDocNames = getContext().getChildPages(docRef);
                 // Validate access rights for the destination page.
                 getContext().checkAccess("overwrite", newDocName);
                 // Validate access rights for all the child pages.
-                for (String childDocName : childDocNames) {
+                for (DocumentReference childDocName : childDocNames) {
                     getContext().checkAccess("edit", childDocName);
                 }
                 getContext().renameDocument(doc, newDocName);
-                for (String childDocName : childDocNames) {
+                for (DocumentReference childDocName : childDocNames) {
                     XWikiDocument childDoc = getContext().getDocument(childDocName);
-                    childDoc.setParent(newDocName);
+                    childDoc.setParentReference(newDocName);
                     getContext().saveDocument(childDoc);
                 }
             }
@@ -293,7 +303,8 @@ public class DavPage extends AbstractDavResource
     /**
      * Utility method to verify that a member of this resource doesn't give rise to a cycle.
      * 
-     * @param childDocName Name of the want-to-be-member resource.
+     * @param childDocName
+     *            Name of the want-to-be-member resource.
      * @return True if the childPageName has occured before, false otherwise.
      */
     public boolean createsCycle(String childDocName)

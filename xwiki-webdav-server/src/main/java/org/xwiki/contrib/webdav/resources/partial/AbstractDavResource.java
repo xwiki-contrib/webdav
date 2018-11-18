@@ -253,9 +253,8 @@ public abstract class AbstractDavResource implements XWikiDavResource
         return createPropStat();
     }
 
-    @SuppressWarnings("unchecked")
     @Override
-    public MultiStatusResponse alterProperties(List changeList) throws DavException
+    public MultiStatusResponse alterProperties(@SuppressWarnings("rawtypes") List changeList) throws DavException
     {
         for (Object next : changeList) {
             if (next instanceof DavProperty) {
@@ -348,7 +347,7 @@ public abstract class AbstractDavResource implements XWikiDavResource
     }
 
     @Override
-    public DavResource getCollection()
+    public XWikiDavResource getCollection()
     {
         return this.parentResource;
     }

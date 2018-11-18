@@ -33,6 +33,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xwiki.contrib.webdav.resources.XWikiDavResource;
 import org.xwiki.contrib.webdav.resources.partial.AbstractDavView;
+import org.xwiki.model.reference.DocumentReference;
+import org.xwiki.model.reference.WikiReference;
 
 /**
  * This view list all documents containing attachments.
@@ -53,7 +55,8 @@ public class AttachmentsView extends AbstractDavView
         boolean last = (next == tokens.length - 1);
         if (isTempResource(nextToken)) {
             return super.decode(tokens, next);
-        } else if (getContext().getSpaces().contains(nextToken) && !(last && getContext().isCreateOrMoveRequest())) {
+        } else if (getContext().spaceExists(getContext().getSpaceReference(nextToken))
+            && !(last && getContext().isCreateOrMoveRequest())) {
             AttachmentsBySpaceNameSubView subView = new AttachmentsBySpaceNameSubView();
             subView.init(this, nextToken, "/" + nextToken);
             return last ? subView : subView.decode(tokens, next + 1);
@@ -63,19 +66,21 @@ public class AttachmentsView extends AbstractDavView
     }
 
     @Override
+    public WikiReference getReference()
+    {
+        return getContext().getWikiReference();
+    }
+
+    @Override
     public DavResourceIterator getMembers()
     {
         List<DavResource> children = new ArrayList<DavResource>();
         try {
-            String sql = ", XWikiAttachment as attach where doc.id = attach.docId";
-            List<String> docNames = getContext().searchDocumentsNames(sql);
+            List<DocumentReference> docRefs = getContext().getPagesWithAttachments();
             Set<String> spacesWithAttachments = new HashSet<String>();
-            for (String docName : docNames) {
-                if (getContext().hasAccess("view", docName)) {
-                    int dot = docName.lastIndexOf('.');
-                    if (dot != -1) {
-                        spacesWithAttachments.add(docName.substring(0, dot));
-                    }
+            for (DocumentReference docRef : docRefs) {
+                if (getContext().hasAccess("view", docRef)) {
+                    spacesWithAttachments.add(getContext().serialize(docRef.getParent()));
                 }
             }
             for (String spaceName : spacesWithAttachments) {

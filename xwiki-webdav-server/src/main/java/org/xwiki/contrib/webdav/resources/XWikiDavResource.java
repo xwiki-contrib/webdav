@@ -26,6 +26,7 @@ import org.apache.jackrabbit.webdav.DavResource;
 import org.apache.jackrabbit.webdav.DavResourceLocator;
 import org.apache.jackrabbit.webdav.property.DavPropertySet;
 import org.xwiki.contrib.webdav.utils.XWikiDavContext;
+import org.xwiki.model.reference.EntityReference;
 
 /**
  * The super interface for all xwiki related dav resources. Adds extra xwiki specific methods for the basic
@@ -95,4 +96,18 @@ public interface XWikiDavResource extends DavResource
      * @return The {@link XWikiDavContext} for this resource.
      */
     XWikiDavContext getContext();
+
+    /**
+     * Return an EntityReference of the proper type in case the resource is associated with one.
+     * Some resources describe XWiki entities (Space, Pages, Attachments)
+     * while other describe "virtual" entities (like views at the root level).
+     * In the former case it is possible to construct an entity reference (even if the
+     * represented entity does not exist) while in the latter it is nonsense.
+     * 
+     * @return The {@link EntityReference} for this resource, or null.
+     * @since 9.5
+     */
+    EntityReference getReference();
+
+
 }

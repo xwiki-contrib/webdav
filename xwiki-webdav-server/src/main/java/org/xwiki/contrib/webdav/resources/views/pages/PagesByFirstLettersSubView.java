@@ -35,6 +35,8 @@ import org.xwiki.contrib.webdav.resources.domain.DavPage;
 import org.xwiki.contrib.webdav.resources.domain.DavTempFile;
 import org.xwiki.contrib.webdav.resources.partial.AbstractDavView;
 import org.xwiki.contrib.webdav.utils.XWikiDavUtils;
+import org.xwiki.model.reference.DocumentReference;
+import org.xwiki.model.reference.SpaceReference;
 
 /**
  * The view responsible for holding a set of pages all of which begin with a particular phrase.
@@ -48,9 +50,18 @@ public class PagesByFirstLettersSubView extends AbstractDavView
      */
     private static final Logger logger = LoggerFactory.getLogger(PagesByFirstLettersSubView.class);
 
+    public SpaceReference getReference()
+    {
+        return ((PagesBySpaceNameSubView) parentResource).getReference();
+    }
+
     @Override
     public void init(XWikiDavResource parent, String name, String relativePath) throws DavException
     {
+        if (!(parent instanceof PagesBySpaceNameSubView)) {
+            throw new DavException(DavServletResponse.SC_INTERNAL_SERVER_ERROR,
+                "parent should be a space view but got " + parent.getClass().getName());
+        }
         super.init(parent, name, relativePath);
         if (!name.startsWith(XWikiDavUtils.VIRTUAL_DIRECTORY_PREFIX)
             || !name.endsWith(XWikiDavUtils.VIRTUAL_DIRECTORY_POSTFIX) || !name.equals(name.toUpperCase())) {
@@ -61,14 +72,14 @@ public class PagesByFirstLettersSubView extends AbstractDavView
     @Override
     public XWikiDavResource decode(String[] tokens, int next) throws DavException
     {
-        String spaceName = getCollection().getDisplayName();
         boolean last = (next == tokens.length - 1);
         String nextToken = tokens[next];
         if (isTempResource(nextToken)) {
             return super.decode(tokens, next);
         } else if (!(last && getContext().isCreateFileRequest())) {
             DavPage page = new DavPage();
-            page.init(this, spaceName + "." + nextToken, "/" + nextToken);
+            DocumentReference docRef = new DocumentReference(nextToken, getReference());
+            page.init(this, getContext().serialize(docRef), "/" + nextToken);
             return last ? page : page.decode(tokens, next + 1);
         } else {
             throw new DavException(DavServletResponse.SC_BAD_REQUEST);
@@ -79,23 +90,15 @@ public class PagesByFirstLettersSubView extends AbstractDavView
     public DavResourceIterator getMembers()
     {
         List<DavResource> children = new ArrayList<DavResource>();
-        String spaceName = getCollection().getDisplayName();
-        String filter =
-            getDisplayName().substring(XWikiDavUtils.VIRTUAL_DIRECTORY_PREFIX.length(),
-                getDisplayName().length() - XWikiDavUtils.VIRTUAL_DIRECTORY_POSTFIX.length());
+        String filter = getDisplayName().substring(XWikiDavUtils.VIRTUAL_DIRECTORY_PREFIX.length(),
+            getDisplayName().length() - XWikiDavUtils.VIRTUAL_DIRECTORY_POSTFIX.length());
         try {
-            String sql = "where doc.web='" + spaceName + "'";
-            List<String> docNames = getContext().searchDocumentsNames(sql);
-            for (String docName : docNames) {
-                if (getContext().hasAccess("view", docName)) {
-                    int dot = docName.lastIndexOf('.');
-                    String pageName = docName.substring(dot + 1);
-                    if (pageName.toUpperCase().startsWith(filter)) {
-                        DavPage page = new DavPage();
-                        page.init(this, docName, "/" + pageName);
-                        children.add(page);
-                    }
-                }
+            List<DocumentReference> docRefs = getContext().getChildPagesWithPrefix(getReference(), filter);
+            for (DocumentReference docRef : docRefs) {
+                String pageName = docRef.getName();
+                DavPage page = new DavPage();
+                page.init(this, getContext().serialize(docRef), "/" + pageName);
+                children.add(page);
             }
         } catch (DavException e) {
             logger.error("Unexpected Error : ", e);

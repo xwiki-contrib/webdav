@@ -31,14 +31,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xwiki.contrib.webdav.resources.XWikiDavResource;
 import org.xwiki.contrib.webdav.resources.domain.DavPage;
-import org.xwiki.contrib.webdav.resources.partial.AbstractDavView;
+import org.xwiki.contrib.webdav.resources.partial.AbstractVirtualDavView;
 
 /**
- * This view would list the last 20 modified pages.
+ * This view lists the last 20 modified pages.
  * 
  * @version $Id$
  */
-public class WhatsnewView extends AbstractDavView
+public class WhatsnewView extends AbstractVirtualDavView
 {
     /**
      * Logger instance.
@@ -52,7 +52,7 @@ public class WhatsnewView extends AbstractDavView
         boolean last = (next == tokens.length - 1);
         if (isTempResource(nextToken)) {
             return super.decode(tokens, next);
-        } else if (getContext().exists(nextToken) && !(last && getContext().isCreateOrMoveRequest())) {
+        } else if (getContext().documentExists(getContext().getDocumentReference(nextToken)) && !(last && getContext().isCreateOrMoveRequest())) {
             DavPage page = new DavPage();
             page.init(this, nextToken, "/" + nextToken);
             return last ? page : page.decode(tokens, next + 1);
@@ -69,7 +69,7 @@ public class WhatsnewView extends AbstractDavView
         try {
             List<String> docNames = getContext().searchDocumentsNames(sql, 20, 0);
             for (String docName : docNames) {
-                if (getContext().hasAccess("view", docName)) {
+                if (getContext().hasAccess("view", getContext().getDocumentReference(docName))) {
                     DavPage page = new DavPage();
                     page.init(this, docName, "/" + docName);
                     children.add(page);

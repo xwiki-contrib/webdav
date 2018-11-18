@@ -30,7 +30,7 @@ import org.apache.jackrabbit.webdav.DavServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xwiki.contrib.webdav.resources.XWikiDavResource;
-import org.xwiki.contrib.webdav.resources.partial.AbstractDavView;
+import org.xwiki.contrib.webdav.resources.partial.AbstractVirtualDavView;
 import org.xwiki.contrib.webdav.resources.views.attachments.AttachmentsView;
 import org.xwiki.contrib.webdav.resources.views.pages.PagesView;
 import org.xwiki.contrib.webdav.utils.XWikiDavUtils.BaseViews;
@@ -40,7 +40,7 @@ import org.xwiki.contrib.webdav.utils.XWikiDavUtils.BaseViews;
  * 
  * @version $Id$
  */
-public class RootView extends AbstractDavView
+public class RootView extends AbstractVirtualDavView
 {
     /**
      * Logger instance.
@@ -80,19 +80,19 @@ public class RootView extends AbstractDavView
         List<DavResource> children = new ArrayList<DavResource>();
         try {
             XWikiDavResource homeView = new HomeView();
-            homeView.init(this, "home", "/home");
+            homeView.init(this, BaseViews.HOME, "/" + BaseViews.HOME);
             children.add(homeView);
             XWikiDavResource pagesView = new PagesView();
-            pagesView.init(this, "spaces", "/spaces");
+            pagesView.init(this, BaseViews.PAGES, "/" + BaseViews.PAGES);
             children.add(pagesView);
             XWikiDavResource attachmentsView = new AttachmentsView();
-            attachmentsView.init(this, "attachments", "/attachments");
+            attachmentsView.init(this, BaseViews.ATTACHMENTS, "/" + BaseViews.ATTACHMENTS);
             children.add(attachmentsView);
             XWikiDavResource orphansView = new OrphansView();
-            orphansView.init(this, "orphans", "/orphans");
+            orphansView.init(this, BaseViews.ORPHANS, "/" + BaseViews.ORPHANS);
             children.add(orphansView);
             XWikiDavResource whatsnewView = new WhatsnewView();
-            whatsnewView.init(this, "whatsnew", "/whatsnew");
+            whatsnewView.init(this, BaseViews.WHATSNEW, "/" + BaseViews.WHATSNEW);
             children.add(whatsnewView);
         } catch (DavException e) {
             logger.error("Unexpected Error : ", e);

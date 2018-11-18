@@ -28,14 +28,14 @@ import org.apache.jackrabbit.webdav.io.InputContext;
 import org.apache.jackrabbit.webdav.property.DavPropertySet;
 import org.xwiki.contrib.webdav.resources.XWikiDavResource;
 import org.xwiki.contrib.webdav.resources.domain.DavPage;
-import org.xwiki.contrib.webdav.resources.partial.AbstractDavView;
+import org.xwiki.contrib.webdav.resources.partial.AbstractVirtualDavView;
 
 /**
  * This view allows to browse the pages starting from Main.WebHome using the parent child relationship.
  * 
  * @version $Id$
  */
-public class HomeView extends AbstractDavView
+public class HomeView extends AbstractVirtualDavView
 {
     /**
      * {@link DavPage} representing Main.WebHome.

@@ -33,6 +33,8 @@ import org.xwiki.contrib.webdav.resources.XWikiDavResource;
 import org.xwiki.contrib.webdav.resources.domain.DavPage;
 import org.xwiki.contrib.webdav.resources.partial.AbstractDavView;
 import org.xwiki.contrib.webdav.utils.XWikiDavUtils;
+import org.xwiki.model.reference.DocumentReference;
+import org.xwiki.model.reference.SpaceReference;
 
 /**
  * The view responsible for holding a set of pages (with attachments) all of which begin with a particular phrase.
@@ -57,16 +59,22 @@ public class AttachmentsByFirstLettersSubView extends AbstractDavView
     }
 
     @Override
+    public SpaceReference getReference()
+    {
+        return ((AttachmentsBySpaceNameSubView)parentResource).getReference();
+    }
+
+    @Override
     public XWikiDavResource decode(String[] tokens, int next) throws DavException
     {
         String nextToken = tokens[next];
-        String pageName = getCollection().getDisplayName() + "." + nextToken;
+        DocumentReference pageRef = new DocumentReference(nextToken, getReference());
         boolean last = (next == tokens.length - 1);
         if (isTempResource(nextToken)) {
             return super.decode(tokens, next);
-        } else if (getContext().exists(pageName) && !(last && getContext().isCreateOrMoveRequest())) {
+        } else if (getContext().documentExists(pageRef) && !(last && getContext().isCreateOrMoveRequest())) {
             DavPage page = new DavPage();
-            page.init(this, pageName, "/" + nextToken);
+            page.init(this, getContext().serialize(pageRef), "/" + nextToken);
             return last ? page : page.decode(tokens, next + 1);
         } else {
             throw new DavException(DavServletResponse.SC_BAD_REQUEST);
@@ -77,20 +85,17 @@ public class AttachmentsByFirstLettersSubView extends AbstractDavView
     public DavResourceIterator getMembers()
     {
         List<DavResource> children = new ArrayList<DavResource>();
-        String spaceName = getCollection().getDisplayName();
         String filter =
             getDisplayName().substring(XWikiDavUtils.VIRTUAL_DIRECTORY_PREFIX.length(),
                 getDisplayName().length() - XWikiDavUtils.VIRTUAL_DIRECTORY_POSTFIX.length());
         try {
-            String sql = ", XWikiAttachment as attach where doc.id = attach.docId and doc.web = '" + spaceName + "'";
-            List<String> docNames = getContext().searchDocumentsNames(sql);
-            for (String docName : docNames) {
-                if (getContext().hasAccess("view", docName)) {
-                    int dot = docName.lastIndexOf('.');
-                    String pageName = docName.substring(dot + 1);
+            List<DocumentReference> docRefs = getContext().getPagesWithAttachmentsInSpace(getReference());
+            for (DocumentReference docRef : docRefs) {
+                if (getContext().hasAccess("view", docRef)) {
+                    String pageName = docRef.getName();
                     if (pageName.toUpperCase().startsWith(filter)) {
                         DavPage page = new DavPage();
-                        page.init(this, docName, "/" + pageName);
+                        page.init(this, getContext().serialize(docRef), "/" + pageName);
                         children.add(page);
                     }
                 }

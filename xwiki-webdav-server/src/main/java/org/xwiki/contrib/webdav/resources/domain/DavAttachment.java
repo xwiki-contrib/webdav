@@ -32,13 +32,14 @@ import org.apache.jackrabbit.webdav.property.DavPropertyName;
 import org.apache.jackrabbit.webdav.property.DefaultDavProperty;
 import org.xwiki.contrib.webdav.resources.XWikiDavResource;
 import org.xwiki.contrib.webdav.resources.partial.AbstractDavFile;
+import org.xwiki.model.reference.AttachmentReference;
 
 import com.xpn.xwiki.doc.XWikiAttachment;
 import com.xpn.xwiki.doc.XWikiDocument;
 
 /**
  * The DAV resource representing an {@link XWikiAttachment}.
- * 
+ *
  * @version $Id$
  */
 public class DavAttachment extends AbstractDavFile
@@ -48,6 +49,11 @@ public class DavAttachment extends AbstractDavFile
      */
     private XWikiAttachment attachment;
 
+    /**
+     * The {@link AttachmentReference} for the attachment represented by this resource.
+     */
+    private AttachmentReference attachmentRef;
+
     @Override
     public void init(XWikiDavResource parent, String name, String relativePath)
         throws DavException
@@ -55,6 +61,7 @@ public class DavAttachment extends AbstractDavFile
         super.init(parent, name, relativePath);
         if (parent.exists()) {
             this.attachment = ((DavPage) parent).getDocument().getAttachment(this.name);
+            this.attachmentRef = new AttachmentReference(this.name, ((DavPage) parent).getReference());
         }
         if (exists()) {
             String timeStamp = DavConstants.creationDateFormat.format(attachment.getDate());
@@ -83,10 +90,16 @@ public class DavAttachment extends AbstractDavFile
     }
 
     @Override
+    public AttachmentReference getReference()
+    {
+        return attachmentRef;
+    }
+
+    @Override
     public void spool(OutputContext outputContext) throws IOException
     {
         // Protect against direct url referencing.
-        if (!getContext().hasAccess("view", attachment.getDoc().getFullName())) {
+        if (!getContext().hasAccess("view", attachment.getDoc().getDocumentReference())) {
             throw new IOException("Access rights violation.");
         }
         outputContext.setContentLanguage(attachment.getDoc().getLanguage());
@@ -110,7 +123,7 @@ public class DavAttachment extends AbstractDavFile
     @Override
     public void move(DavResource destination) throws DavException
     {
-        getContext().checkAccess("edit", attachment.getDoc().getFullName());
+        getContext().checkAccess("edit", attachment.getDoc().getDocumentReference());
         if (destination instanceof DavAttachment) {
             DavAttachment dAttachment = (DavAttachment) destination;
             // Check if this is a rename operation.

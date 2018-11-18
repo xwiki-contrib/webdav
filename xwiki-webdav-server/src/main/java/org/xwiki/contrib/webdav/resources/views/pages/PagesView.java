@@ -32,11 +32,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xwiki.contrib.webdav.resources.XWikiDavResource;
 import org.xwiki.contrib.webdav.resources.partial.AbstractDavView;
+import org.xwiki.model.reference.DocumentReference;
+import org.xwiki.model.reference.WikiReference;
 
 import com.xpn.xwiki.doc.XWikiDocument;
 
 /**
  * This view lists all the documents organized by space.
+ * (Actually it lists all the root spaces of the wiki.)
  * 
  * @version $Id$
  */
@@ -46,6 +49,12 @@ public class PagesView extends AbstractDavView
      * Logger instance.
      */
     private static final Logger logger = LoggerFactory.getLogger(PagesView.class);
+
+    @Override
+    public WikiReference getReference()
+    {
+        return getContext().getWikiReference();
+    }
 
     @Override
     public XWikiDavResource decode(String[] tokens, int next) throws DavException
@@ -68,7 +77,7 @@ public class PagesView extends AbstractDavView
     {
         List<DavResource> children = new ArrayList<DavResource>();
         try {
-            List<String> spaceNames = getContext().getSpaces();
+            List<String> spaceNames = getContext().getRootSpaces();
             for (String spaceName : spaceNames) {
                 PagesBySpaceNameSubView subView = new PagesBySpaceNameSubView();
                 subView.init(this, spaceName, "/" + spaceName);
@@ -85,9 +94,9 @@ public class PagesView extends AbstractDavView
     public void addMember(DavResource resource, InputContext inputContext) throws DavException
     {
         if (resource instanceof PagesBySpaceNameSubView) {
-            String homePage = resource.getDisplayName() + ".WebHome";
+            DocumentReference homePage = new DocumentReference("WebHome", ((PagesBySpaceNameSubView) resource).getReference());
             getContext().checkAccess("edit", homePage);
-            XWikiDocument doc = getContext().getDocument(resource.getDisplayName() + ".WebHome");
+            XWikiDocument doc = getContext().getDocument(homePage);
             doc.setContent("This page was created through the WebDAV interface.");
             getContext().saveDocument(doc);
         } else {
@@ -101,14 +110,13 @@ public class PagesView extends AbstractDavView
         XWikiDavResource davResource = (XWikiDavResource) member;
         if (davResource instanceof PagesBySpaceNameSubView) {
             PagesBySpaceNameSubView space = (PagesBySpaceNameSubView) davResource;
-            String sql = "where doc.web='" + space.getDisplayName() + "'";
-            List<String> docNames = getContext().searchDocumentsNames(sql);
+            List<DocumentReference> docs = getContext().getChildPages(space.getReference());
             // Check if the user has delete rights on all child pages.
-            for (String docName : docNames) {
-                getContext().checkAccess("delete", docName);
+            for (DocumentReference docRef : docs) {
+                getContext().checkAccess("delete", docRef);
             }
-            for (String docName : docNames) {
-                XWikiDocument doc = getContext().getDocument(docName);
+            for (DocumentReference docRef : docs) {
+                XWikiDocument doc = getContext().getDocument(docRef);
                 getContext().deleteDocument(doc);
             }
         } else {

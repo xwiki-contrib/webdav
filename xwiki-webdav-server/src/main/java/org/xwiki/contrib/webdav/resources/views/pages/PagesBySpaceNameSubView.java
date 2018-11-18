@@ -36,6 +36,8 @@ import org.xwiki.contrib.webdav.resources.XWikiDavResource;
 import org.xwiki.contrib.webdav.resources.domain.DavPage;
 import org.xwiki.contrib.webdav.resources.partial.AbstractDavView;
 import org.xwiki.contrib.webdav.utils.XWikiDavUtils;
+import org.xwiki.model.reference.DocumentReference;
+import org.xwiki.model.reference.SpaceReference;
 
 import com.xpn.xwiki.doc.XWikiDocument;
 
@@ -64,14 +66,20 @@ public class PagesBySpaceNameSubView extends AbstractDavView
             && !(last && getContext().isCreateOrMoveRequest())) {
             resource = new PagesByFirstLettersSubView();
             resource.init(this, nextToken.toUpperCase(), "/" + nextToken.toUpperCase());
-        } else if (getContext().isCreateCollectionRequest() || getContext().exists(this.name + "." + nextToken)) {
+        } else if (getContext().isCreateCollectionRequest()
+            || getContext().documentExists(new DocumentReference(nextToken, getReference()))) {
             resource = new DavPage();
-            resource.init(this, this.name + "." + nextToken, "/" + nextToken);
-        } else if (nextToken.startsWith(this.name + ".") && getContext().exists(nextToken)) {
+            DocumentReference docRef = new DocumentReference(nextToken, getReference());
+            resource.init(this, getContext().serialize(docRef), "/" + nextToken);
+        } else if (getContext().spaceExists( new SpaceReference(nextToken, getReference()))) {
+            resource = new PagesBySpaceNameSubView();
+            resource.init(this, nextToken, "/" + nextToken);
+        } else if (nextToken.startsWith(this.name + ".") && getContext().documentExists(getContext().getDocumentReference(nextToken))) {
             // For compatibility with FoXWiki
             resource = new DavPage();
             resource.init(this, nextToken, "/" + nextToken);
         } else {
+            // maybe throw "NOT_FOUND" here?
             throw new DavException(DavServletResponse.SC_BAD_REQUEST);
         }
         return last ? resource : resource.decode(tokens, next + 1);
@@ -80,15 +88,13 @@ public class PagesBySpaceNameSubView extends AbstractDavView
     @Override
     public boolean exists()
     {
-        try {
-            List<String> spaces = getContext().getSpaces();
-            if (spaces.contains(name)) {
-                return true;
-            }
-        } catch (DavException ex) {
-            logger.error("Unexpected Error : ", ex);
-        }
-        return false;
+        return getContext().spaceExists(getReference());
+    }
+
+    @Override
+    public SpaceReference getReference()
+    {
+        return new SpaceReference(this.name, parentResource.getReference());
     }
 
     @Override
@@ -96,22 +102,35 @@ public class PagesBySpaceNameSubView extends AbstractDavView
     {
         List<DavResource> children = new ArrayList<DavResource>();
         try {
-            String sql = "where doc.web='" + this.name + "'";
-            List<String> docNames = getContext().searchDocumentsNames(sql);
+            List<String> childSpaces = getContext().getChildSpaces(getReference());
+            for(String childSpace : childSpaces) {
+                PagesBySpaceNameSubView childSpaceView = new PagesBySpaceNameSubView();
+                childSpaceView.init(this, childSpace, "/" + childSpace);
+                children.add(childSpaceView);
+            }
+
+            List<DocumentReference> docRefs = getContext().getChildPages(getReference());
             Set<String> subViewNames = new HashSet<String>();
-            int subViewNameLength = XWikiDavUtils.getSubViewNameLength(docNames.size());
-            for (String docName : docNames) {
-                if (getContext().hasAccess("view", docName)) {
-                    int dot = docName.lastIndexOf('.');
-                    String pageName = docName.substring(dot + 1);
-                    if (subViewNameLength < pageName.length()) {
-                        subViewNames.add(pageName.substring(0, subViewNameLength).toUpperCase());
+            int subViewNameLength = XWikiDavUtils.getSubViewNameLength(docRefs.size());
+            for (DocumentReference docRef : docRefs) {
+                logger.debug("check for page [{}] as {}", docRef, docRef.getName() );
+                if (getContext().hasAccess("view", docRef)) {
+                    String pageName = docRef.getName();
+                    if (subViewNameLength == 0) {
+                        DavPage page = new DavPage();
+                        page.init(this, getContext().serialize(docRef), "/" + pageName);
+                        children.add(page);
                     } else {
-                        // This is not good.
-                        subViewNames.add(pageName.toUpperCase());
+                        if (subViewNameLength < pageName.length()) {
+                            subViewNames.add(pageName.substring(0, subViewNameLength).toUpperCase());
+                        } else {
+                            // This is not good.
+                            subViewNames.add(pageName.toUpperCase());
+                        }
                     }
                 }
             }
+
             for (String subViewName : subViewNames) {
                 try {
                     String modName =
@@ -134,9 +153,9 @@ public class PagesBySpaceNameSubView extends AbstractDavView
     public void addMember(DavResource resource, InputContext inputContext) throws DavException
     {
         if (resource instanceof DavPage) {
-            String pName = resource.getDisplayName();
-            if (getContext().hasAccess("edit", pName)) {
-                XWikiDocument childDoc = getContext().getDocument(pName);
+            DocumentReference newDocRef = getContext().getDocumentReference(resource.getDisplayName());
+            if (getContext().hasAccess("edit", newDocRef)) {
+                XWikiDocument childDoc = getContext().getDocument(newDocRef);
                 childDoc.setContent("This page was created through the WebDAV interface.");
                 getContext().saveDocument(childDoc);
             }
@@ -150,9 +169,9 @@ public class PagesBySpaceNameSubView extends AbstractDavView
     {
         XWikiDavResource davResource = (XWikiDavResource) member;
         if (davResource instanceof DavPage) {
-            String pName = davResource.getDisplayName();
-            getContext().checkAccess("delete", pName);
-            XWikiDocument childDoc = getContext().getDocument(pName);
+            DocumentReference memberRef = getContext().getDocumentReference(davResource.getDisplayName());
+            getContext().checkAccess("delete", memberRef);
+            XWikiDocument childDoc = getContext().getDocument(memberRef);
             if (!childDoc.isNew()) {
                 getContext().deleteDocument(childDoc);
             }
@@ -161,21 +180,14 @@ public class PagesBySpaceNameSubView extends AbstractDavView
             String filter =
                 member.getDisplayName().substring(XWikiDavUtils.VIRTUAL_DIRECTORY_PREFIX.length(),
                     member.getDisplayName().length() - XWikiDavUtils.VIRTUAL_DIRECTORY_POSTFIX.length());
-            String sql = "where doc.web='" + this.name + "'";
-            List<String> docNames = getContext().searchDocumentsNames(sql);
-            List<String> filteredDocNames = new ArrayList<String>();
-            for (String docName : docNames) {
-                if (docName.toUpperCase().startsWith(filter)) {
-                    filteredDocNames.add(docName);
-                }
-            }
+            List<DocumentReference> docRefs = getContext().getChildPagesWithPrefix(getReference(), filter);
             // Verify delete rights on all the documents to be removed.
-            for (String docName : filteredDocNames) {
-                getContext().checkAccess("delete", docName);
+            for (DocumentReference docRef : docRefs) {
+                getContext().checkAccess("delete", docRef);
             }
             // Delete the documents.
-            for (String docName : filteredDocNames) {
-                getContext().deleteDocument(getContext().getDocument(docName));
+            for (DocumentReference docRef : docRefs) {
+                getContext().deleteDocument(getContext().getDocument(docRef));
             }
         } else {
             super.removeMember(member);
@@ -189,24 +201,28 @@ public class PagesBySpaceNameSubView extends AbstractDavView
         // We only support rename operation for the moment.
         if (destination instanceof PagesBySpaceNameSubView) {
             PagesBySpaceNameSubView dSpace = (PagesBySpaceNameSubView) destination;
+            SpaceReference dSpaceRef = dSpace.getReference();
             if (!dSpace.exists()) {
                 // Now check whether this is a rename operation.
                 if (getCollection().equals(dSpace.getCollection())) {
-                    String sql = "where doc.web='" + this.name + "'";
-                    List<String> docNames = getContext().searchDocumentsNames(sql);
+                    List<DocumentReference> childPages = getContext().getChildPages(getReference());
+
                     // To rename an entire space, user should have edit rights on all the
                     // documents in the current space and delete rights on all the documents that
                     // will be replaced (if they exist).
-                    for (String docName : docNames) {
-                        String newDocName = dSpace.getDisplayName() + "." + docName;
-                        getContext().checkAccess("edit", docName);
-                        getContext().checkAccess("overwrite", newDocName);
+                    SpaceReference space = dSpace.getReference();
+                    getContext().checkAccess("edit", space);
+                    for (DocumentReference docRef : childPages) {
+                        getContext().checkAccess("overwrite", docRef);
                     }
-                    for (String docName : docNames) {
-                        XWikiDocument doc = getContext().getDocument(docName);
-                        String newDocName = dSpace.getDisplayName() + "." + doc.getName();
-                        getContext().renameDocument(doc, newDocName);
+                    for (DocumentReference docRef : childPages) {
+                        XWikiDocument doc = getContext().getDocument(docRef);
+                        DocumentReference newDocRef = new DocumentReference(docRef.getName(), dSpaceRef);
+                        getContext().renameDocument(doc, newDocRef);
                     }
+                    // FIXME: same for the subspaces!
+                    // maybe use rename job instead (?)
+
                 } else {
                     // Actual moves (perhaps from one view to another) is not
                     // allowed.

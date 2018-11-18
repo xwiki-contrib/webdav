@@ -32,6 +32,7 @@ import org.apache.jackrabbit.webdav.property.DavPropertyName;
 import org.apache.jackrabbit.webdav.property.DefaultDavProperty;
 import org.xwiki.contrib.webdav.resources.XWikiDavResource;
 import org.xwiki.contrib.webdav.resources.partial.AbstractDavFile;
+import org.xwiki.model.reference.EntityReference;
 
 import com.xpn.xwiki.doc.XWikiDocument;
 
@@ -56,6 +57,12 @@ public class DavWikiFile extends AbstractDavFile
      * The {@link XWikiDocument} of whose content is represented by this resource (file).
      */
     private XWikiDocument parentDoc;
+
+    public EntityReference getReference()
+    {
+        return parentDoc.getDocumentReference();
+    }
+
 
     @Override
     public void init(XWikiDavResource parent, String name, String relativePath)
@@ -92,7 +99,7 @@ public class DavWikiFile extends AbstractDavFile
     public void spool(OutputContext outputContext) throws IOException
     {
         // Protect against direct url referencing.
-        if (!getContext().hasAccess("view", parentDoc.getFullName())) {
+        if (!getContext().hasAccess("view", parentDoc.getDocumentReference())) {
             throw new IOException("Access rights violation.");
         }
         outputContext.setContentLanguage(parentDoc.getLanguage());

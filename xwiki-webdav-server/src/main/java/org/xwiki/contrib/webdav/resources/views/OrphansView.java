@@ -31,7 +31,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xwiki.contrib.webdav.resources.XWikiDavResource;
 import org.xwiki.contrib.webdav.resources.domain.DavPage;
-import org.xwiki.contrib.webdav.resources.partial.AbstractDavView;
+import org.xwiki.contrib.webdav.resources.partial.AbstractVirtualDavView;
 
 /**
  * This view allows to view the other entry points in the wiki that are not linked to 'Main.WebHome'. All pages that do
@@ -39,7 +39,7 @@ import org.xwiki.contrib.webdav.resources.partial.AbstractDavView;
  * 
  * @version $Id$
  */
-public class OrphansView extends AbstractDavView
+public class OrphansView extends AbstractVirtualDavView
 {
     /**
      * Logger instance.

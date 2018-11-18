@@ -32,8 +32,11 @@ import org.apache.jackrabbit.webdav.DavServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xwiki.contrib.webdav.resources.XWikiDavResource;
+import org.xwiki.contrib.webdav.resources.domain.DavPage;
 import org.xwiki.contrib.webdav.resources.partial.AbstractDavView;
 import org.xwiki.contrib.webdav.utils.XWikiDavUtils;
+import org.xwiki.model.reference.DocumentReference;
+import org.xwiki.model.reference.SpaceReference;
 
 /**
  * This view groups all pages having attachments according to their space name.
@@ -52,17 +55,31 @@ public class AttachmentsBySpaceNameSubView extends AbstractDavView
     {
         String nextToken = tokens[next];
         boolean last = (next == tokens.length - 1);
+        XWikiDavResource subView = null;
         if (isTempResource(nextToken)) {
             return super.decode(tokens, next);
         } else if ((nextToken.startsWith(XWikiDavUtils.VIRTUAL_DIRECTORY_PREFIX) && nextToken
             .endsWith(XWikiDavUtils.VIRTUAL_DIRECTORY_POSTFIX))
             && !(last && getContext().isCreateOrMoveRequest())) {
-            AttachmentsByFirstLettersSubView subView = new AttachmentsByFirstLettersSubView();
+            subView = new AttachmentsByFirstLettersSubView();
             subView.init(this, nextToken.toUpperCase(), "/" + nextToken.toUpperCase());            
-            return last ? subView : subView.decode(tokens, next + 1);
         } else {
+            DocumentReference docRef = new DocumentReference(nextToken, getReference());
+            if (getContext().documentExists(docRef)) {
+                subView = new DavPage();
+                subView.init(this, getContext().serialize(docRef), "/" + nextToken);
+            }
+        }
+        if (subView == null) {
             throw new DavException(DavServletResponse.SC_BAD_REQUEST);
         }
+        return last ? subView : subView.decode(tokens, next + 1);
+    }
+
+    @Override
+    public SpaceReference getReference()
+    {
+        return getContext().getSpaceReference(name);
     }
 
     @Override
@@ -70,16 +87,17 @@ public class AttachmentsBySpaceNameSubView extends AbstractDavView
     {
         List<DavResource> children = new ArrayList<DavResource>();
         try {
-            String sql =
-                ", XWikiAttachment as attach where doc.id = attach.docId and doc.web = '" + getDisplayName() + "'";
-            List<String> docNames = getContext().searchDocumentsNames(sql);
+            List<DocumentReference> docRefs = getContext().getPagesWithAttachmentsInSpace(getReference());
             Set<String> subViewNames = new HashSet<String>();
-            int subViewNameLength = XWikiDavUtils.getSubViewNameLength(docNames.size());
-            for (String docName : docNames) {
-                if (getContext().hasAccess("view", docName)) {
-                    int dot = docName.lastIndexOf('.');
-                    String pageName = docName.substring(dot + 1);
-                    if (subViewNameLength < pageName.length()) {
+            int subViewNameLength = XWikiDavUtils.getSubViewNameLength(docRefs.size());
+            for (DocumentReference docRef : docRefs) {
+                if (getContext().hasAccess("view", docRef)) {
+                    String pageName = docRef.getName();
+                    if (subViewNameLength == 0) {
+                        DavPage page = new DavPage();
+                        page.init(this, pageName, "/" + pageName);
+                        children.add(page);
+                    } else if (subViewNameLength < pageName.length()) {
                         subViewNames.add(pageName.substring(0, subViewNameLength).toUpperCase());
                     } else {
                         // This is not good.

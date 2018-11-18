@@ -19,6 +19,9 @@
  */
 package org.xwiki.contrib.webdav.utils;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+
 import com.xpn.xwiki.api.Attachment;
 import com.xpn.xwiki.api.Document;
 
@@ -47,12 +50,12 @@ public final class XWikiDavUtils
     /**
      * Signature used to identify an attachment url.
      */
-    public static final String XWIKI_ATTACHMENT_SIGNATURE = "/xwiki/bin/download/";
+    public static final String XWIKI_ATTACHMENT_SIGNATURE = "/bin/download/";
 
     /**
      * Signature used to identify a webdav url.
      */
-    public static final String XWIKI_WEBDAV_SIGNATURE = "/xwiki/webdav/spaces/";
+    public static final String XWIKI_WEBDAV_SIGNATURE = "/webdav/spaces/";
 
     /**
      * An interface for collecting all base views.
@@ -107,7 +110,9 @@ public final class XWikiDavUtils
     public static int getSubViewNameLength(int totalDocumentCount)
     {
         // We might want to change this logic later.
-        if (totalDocumentCount < 200) {
+        if (totalDocumentCount < 40) {
+            return 0;
+        } else if (totalDocumentCount < 200) {
             return 1;
         } else if (totalDocumentCount < 5000) {
             return 2;
@@ -123,10 +128,25 @@ public final class XWikiDavUtils
      */
     public static String getDavURL(Document doc, Attachment attachment)
     {
+        final String attachmentFilePath = encode(attachment.getFilename());
         String docDownloadURL = doc.getExternalURL("download");
-        String httpUrl = docDownloadURL.endsWith(URL_SEPARATOR) ? docDownloadURL + attachment.getFilename()
-                : docDownloadURL + URL_SEPARATOR + attachment.getFilename();
+        String httpUrl = docDownloadURL.endsWith(URL_SEPARATOR) ? docDownloadURL + attachmentFilePath
+                : docDownloadURL + URL_SEPARATOR + attachmentFilePath;
         return getDavURL(httpUrl);
+    }
+
+    /**
+     * URL encode path segments in UTF-8.
+     * @param pathNamePart the segment of the path to encode
+     * @return the encoded part of the path
+     */
+    public static String encode(String pathNamePart)
+    {
+        try {
+            return URLEncoder.encode(pathNamePart, "UTF-8").replaceAll("\\+", "%20");
+        } catch (UnsupportedEncodingException e) {
+            throw new RuntimeException("UTF-8 not supported; this should not happen", e);
+        }
     }
 
     /**
@@ -138,10 +158,8 @@ public final class XWikiDavUtils
         // For the moment we'll only consider attachments.
         String webDAVUrl = "";
         if (httpUrl.contains(XWIKI_ATTACHMENT_SIGNATURE)) {
-            String[] parts = httpUrl.split(XWIKI_ATTACHMENT_SIGNATURE);
-            String[] elements = parts[1].split(URL_SEPARATOR);
-            webDAVUrl = parts[0] + XWIKI_WEBDAV_SIGNATURE + elements[0]
-                + URL_SEPARATOR + elements[1] + URL_SEPARATOR + elements[2];
+            String[] parts = httpUrl.split(XWIKI_ATTACHMENT_SIGNATURE, 1);
+            webDAVUrl = parts[0] + XWIKI_WEBDAV_SIGNATURE + parts[1];
         }
         return webDAVUrl;
     }

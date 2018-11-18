@@ -140,7 +140,7 @@ public class XWikiDavServlet extends AbstractWebdavServlet
                 webdavResponse.sendError(e);
             }
         } finally {
-            cleaUp(webdavRequest, context);
+            cleanUp(webdavRequest, context);
         }
     }
 
@@ -204,10 +204,10 @@ public class XWikiDavServlet extends AbstractWebdavServlet
      * We must ensure we clean the ThreadLocal variables located in the Container and Execution
      * components as otherwise we will have a potential memory leak.
      */
-    public void cleaUp(WebdavRequest request, XWikiDavContext context)
+    private void cleanUp(WebdavRequest request, XWikiDavContext context)
     {
-        Container container = (Container) Utils.getComponent(Container.class);
-        Execution execution = (Execution) Utils.getComponent(Execution.class);
+        Container container = Utils.getComponent(Container.class);
+        Execution execution = Utils.getComponent(Execution.class);
         container.removeRequest();
         container.removeResponse();
         container.removeSession();
@@ -217,4 +217,17 @@ public class XWikiDavServlet extends AbstractWebdavServlet
             context.cleanUp();
         }
     }
+
+    /**
+     * Clean up after finishing the request.
+     * This probably was never intended to be a public API and will be removed
+     * in the 10.x versions.
+     * @deprecated
+     */
+    public void cleaUp(WebdavRequest request, XWikiDavContext context)
+    {
+        logger.warn("call to deprecated method cleaUp; this method will be removed in 10.x");
+        cleanUp(request, context);
+    }
+
 }

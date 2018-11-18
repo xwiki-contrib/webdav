@@ -40,8 +40,23 @@ import org.xwiki.cache.CacheException;
 import org.xwiki.cache.CacheManager;
 import org.xwiki.cache.config.CacheConfiguration;
 import org.xwiki.cache.eviction.LRUEvictionConfiguration;
+import org.xwiki.component.manager.ComponentLookupException;
+import org.xwiki.component.manager.ComponentManager;
 import org.xwiki.container.servlet.ServletContainerException;
 import org.xwiki.container.servlet.ServletContainerInitializer;
+import org.xwiki.model.reference.DocumentReference;
+import org.xwiki.model.reference.DocumentReferenceResolver;
+import org.xwiki.model.reference.EntityReference;
+import org.xwiki.model.reference.EntityReferenceSerializer;
+import org.xwiki.model.reference.SpaceReference;
+import org.xwiki.model.reference.SpaceReferenceResolver;
+import org.xwiki.model.reference.WikiReference;
+import org.xwiki.query.Query;
+import org.xwiki.query.QueryException;
+import org.xwiki.query.QueryFilter;
+import org.xwiki.query.QueryManager;
+import org.xwiki.security.authorization.AuthorizationManager;
+import org.xwiki.security.authorization.Right;
 
 import com.xpn.xwiki.XWiki;
 import com.xpn.xwiki.XWikiContext;
@@ -55,8 +70,8 @@ import com.xpn.xwiki.web.XWikiRequest;
 import com.xpn.xwiki.web.XWikiResponse;
 import com.xpn.xwiki.web.XWikiServletContext;
 import com.xpn.xwiki.web.XWikiServletRequest;
-import com.xpn.xwiki.web.XWikiURLFactory;
 import com.xpn.xwiki.web.XWikiServletResponse;
+import com.xpn.xwiki.web.XWikiURLFactory;
 
 /**
  * Holds context information about a webdav request.
@@ -88,6 +103,27 @@ public class XWikiDavContext
     private XWikiContext xwikiContext;
 
     /**
+     * look up components at runtime
+     */
+    private ComponentManager componentManager;
+
+    /**
+     * query manager to search thorugh the wiki
+     */
+    private QueryManager queryManager;
+
+    /**
+     * the authorization manager for access checks
+     */
+    private AuthorizationManager authManager;
+
+    /**
+     * entity reference serializer to generate a string representation which is relative to the given wiki (as we never
+     * switch the wiki yet)
+     */
+    private EntityReferenceSerializer<String> toStringSerializer;
+
+    /**
      * DAV resource factory.
      */
     private DavResourceFactory resourceFactory;
@@ -105,13 +141,20 @@ public class XWikiDavContext
     /**
      * Creates a new xwiki webdav context.
      * 
-     * @param request dav request.
-     * @param response dav response.
-     * @param servletContext servlet context.
-     * @param resourceFactory dav resource factory.
-     * @param davSession dav session.
-     * @param lockManager lock manager.
-     * @throws DavException if an error occurs while initializing the xwiki context.
+     * @param request
+     *            dav request.
+     * @param response
+     *            dav response.
+     * @param servletContext
+     *            servlet context.
+     * @param resourceFactory
+     *            dav resource factory.
+     * @param davSession
+     *            dav session.
+     * @param lockManager
+     *            lock manager.
+     * @throws DavException
+     *             if an error occurs while initializing the xwiki context.
      */
     public XWikiDavContext(DavServletRequest request, DavServletResponse response, ServletContext servletContext,
         DavResourceFactory resourceFactory, DavSession davSession, LockManager lockManager) throws DavException
@@ -128,6 +171,7 @@ public class XWikiDavContext
 
             xwikiContext = Utils.prepareContext("", xwikiRequest, xwikiResponse, xwikiEngine);
             xwikiContext.setMode(XWikiContext.MODE_SERVLET);
+            // FIXME: what if called from subwiki?
             xwikiContext.setWikiId("xwiki");
 
             ServletContainerInitializer containerInitializer = Utils.getComponent(ServletContainerInitializer.class);
@@ -135,6 +179,13 @@ public class XWikiDavContext
             containerInitializer.initializeResponse(xwikiContext.getResponse());
             containerInitializer.initializeSession(xwikiContext.getRequest().getHttpServletRequest());
             containerInitializer.initializeApplicationContext(servletContext);
+
+            componentManager = Utils.getComponentManager();
+
+            authManager = componentManager.getInstance(AuthorizationManager.class);
+            queryManager = componentManager.getInstance(QueryManager.class);
+
+            toStringSerializer = componentManager.getInstance(EntityReferenceSerializer.TYPE_STRING, "local");
 
             XWiki xwiki = XWiki.getXWiki(xwikiContext);
             XWikiURLFactory urlf = xwiki.getURLFactoryService().createURLFactory(xwikiContext.getMode(), xwikiContext);
@@ -152,9 +203,7 @@ public class XWikiDavContext
                 xwikiContext.setDoc(new XWikiDocument("Fake", "Document"));
             }
             xwikiContext.put("ajax", Boolean.TRUE);
-        } catch (XWikiException ex) {
-            throw new DavException(DavServletResponse.SC_INTERNAL_SERVER_ERROR, ex);
-        } catch (ServletContainerException ex) {
+        } catch (XWikiException | ServletContainerException | ComponentLookupException ex) {
             throw new DavException(DavServletResponse.SC_INTERNAL_SERVER_ERROR, ex);
         }
         // Initialize the cache.
@@ -166,7 +215,8 @@ public class XWikiDavContext
     /**
      * Initializes global webdav cache.
      * 
-     * @throws DavException if an error occurs while initializing the cache.
+     * @throws DavException
+     *             if an error occurs while initializing the cache.
      */
     private static void initCache() throws DavException
     {
@@ -199,10 +249,14 @@ public class XWikiDavContext
     /**
      * Returns if the user (in the context) has the given access level on the document in question.
      * 
-     * @param right Access level.
-     * @param fullDocName Name of the document.
+     * @param right
+     *            Access level.
+     * @param fullDocName
+     *            Name of the document.
      * @return True if the user has the given access level for the document in question, false otherwise.
+     * @deprecated use {@link #hasAccess(String, EntityReference) instead
      */
+    @Deprecated
     public boolean hasAccess(String right, String fullDocName)
     {
         boolean hasAccess = false;
@@ -210,8 +264,8 @@ public class XWikiDavContext
             if (right.equals("overwrite")) {
                 String overwriteAccess = exists(fullDocName) ? "delete" : "edit";
                 hasAccess = hasAccess(overwriteAccess, fullDocName);
-            } else if (xwikiContext.getWiki().getRightService()
-                .hasAccessLevel(right, xwikiContext.getUser(), fullDocName, xwikiContext)) {
+            } else if (xwikiContext.getWiki().getRightService().hasAccessLevel(right, xwikiContext.getUser(),
+                fullDocName, xwikiContext)) {
                 hasAccess = true;
             }
         } catch (XWikiException ex) {
@@ -221,14 +275,40 @@ public class XWikiDavContext
     }
 
     /**
+     * Returns if the current user has the given access level on the entity in question.
+     * 
+     * @param right
+     *            Access level.
+     * @param reference
+     *            reference to the entity
+     * @return True if the user has the given access level for the entity in question, false otherwise.
+     */
+    public boolean hasAccess(String right, EntityReference reference)
+    {
+        boolean hasAccess = false;
+        if (right.equals("overwrite") && (reference instanceof DocumentReference)) {
+            String overwriteAccess = documentExists((DocumentReference) reference) ? "delete" : "edit";
+            hasAccess = hasAccess(overwriteAccess, reference);
+        } else if (authManager.hasAccess(Right.toRight(right), xwikiContext.getUserReference(), reference)) {
+            hasAccess = true;
+        }
+        return hasAccess;
+    }
+
+    /**
      * Validates if the user (in the context) has the given access level on the document in question, if not, throws a
      * {@link DavException}.
      * 
-     * @param right Access level.
-     * @param fullDocName Name of the document.
-     * @throws DavException If the user doesn't have enough access rights on the given document or if the access
-     *             verification code fails.
+     * @param right
+     *            Access level.
+     * @param fullDocName
+     *            Name of the document.
+     * @throws DavException
+     *             If the user doesn't have enough access rights on the given document or if the access verification
+     *             code fails.
+     * @deprecated use {@link #checkAccess(String, EntityReference)} instead.
      */
+    @Deprecated
     public void checkAccess(String right, String fullDocName) throws DavException
     {
         if (!hasAccess(right, fullDocName)) {
@@ -237,9 +317,28 @@ public class XWikiDavContext
     }
 
     /**
+     * Validates if the user has the given righ on the entity in question. If not, throws a {@link DavException}.
+     * 
+     * @param right
+     *            Access level.
+     * @param ref
+     *            reference to the entity
+     * @throws DavException
+     *             If the user doesn't have enough access rights on the given document or if the access verification
+     *             code fails.
+     */
+    public void checkAccess(String right, EntityReference ref) throws DavException
+    {
+        if (!hasAccess(right, ref)) {
+            throw new DavException(DavServletResponse.SC_FORBIDDEN);
+        }
+    }
+
+    /**
      * Returns the mime type of the given attachment.
      * 
-     * @param attachment xwiki attachment.
+     * @param attachment
+     *            xwiki attachment.
      * @return a mime type string.
      */
     public String getMimeType(XWikiAttachment attachment)
@@ -250,9 +349,11 @@ public class XWikiDavContext
     /**
      * Returns the content of the attachment.
      * 
-     * @param attachment xwiki attachment.
+     * @param attachment
+     *            xwiki attachment.
      * @return attachment content as a byte array.
-     * @throws DavException if an error occurs while reading the attachment.
+     * @throws DavException
+     *             if an error occurs while reading the attachment.
      */
     public byte[] getContent(XWikiAttachment attachment) throws DavException
     {
@@ -266,9 +367,11 @@ public class XWikiDavContext
     /**
      * Utility method for reading a given input stream into a byte array.
      * 
-     * @param in input stream.
+     * @param in
+     *            input stream.
      * @return a byte array holding data from the given stream.
-     * @throws DavException if an error occurs while reading the input stream.
+     * @throws DavException
+     *             if an error occurs while reading the input stream.
      */
     public byte[] getFileContentAsBytes(InputStream in) throws DavException
     {
@@ -282,10 +385,14 @@ public class XWikiDavContext
     /**
      * Adds an attachment to the {@link XWikiDocument} represented by this resource.
      * 
-     * @param attachmentName Name of this attachment.
-     * @param data Data to be put into the attachment (file content).
-     * @param doc The document to which the attachment is made.
-     * @throws DavException Indicates an internal error.
+     * @param attachmentName
+     *            Name of this attachment.
+     * @param data
+     *            Data to be put into the attachment (file content).
+     * @param doc
+     *            The document to which the attachment is made.
+     * @throws DavException
+     *             Indicates an internal error.
      */
     public void addAttachment(XWikiDocument doc, byte[] data, String attachmentName) throws DavException
     {
@@ -303,14 +410,14 @@ public class XWikiDavContext
 
         attachment.setContent(data);
         attachment.setFilename(filename);
-        attachment.setAuthor(xwikiContext.getUser());
+        attachment.setAuthorReference(xwikiContext.getUserReference());
 
         // Add the attachment to the document
         attachment.setDoc(doc);
 
-        doc.setAuthor(xwikiContext.getUser());
+        doc.setAuthorReference(xwikiContext.getUserReference());
         if (doc.isNew()) {
-            doc.setCreator(xwikiContext.getUser());
+            doc.setCreatorReference(xwikiContext.getUserReference());
         }
 
         try {
@@ -323,10 +430,14 @@ public class XWikiDavContext
     /**
      * Moves the given attachment under the target document.
      * 
-     * @param attachment xwiki attachment.
-     * @param destinationDoc target document.
-     * @param newAttachmentName new attachment name.
-     * @throws DavException if an error occurs while accessing the wiki.
+     * @param attachment
+     *            xwiki attachment.
+     * @param destinationDoc
+     *            target document.
+     * @param newAttachmentName
+     *            new attachment name.
+     * @throws DavException
+     *             if an error occurs while accessing the wiki.
      */
     public void moveAttachment(XWikiAttachment attachment, XWikiDocument destinationDoc, String newAttachmentName)
         throws DavException
@@ -335,10 +446,8 @@ public class XWikiDavContext
             // Delete the current attachment
             XWikiDocument document = attachment.getDoc();
             document.removeAttachment(attachment);
-            this.xwikiContext.getWiki().saveDocument(
-                document,
-                "Move attachment [" + attachment.getFilename() + "] to document ["
-                    + destinationDoc.getDocumentReference() + "]", this.xwikiContext);
+            this.xwikiContext.getWiki().saveDocument(document, "Move attachment [" + attachment.getFilename()
+                + "] to document [" + destinationDoc.getDocumentReference() + "]", this.xwikiContext);
             // Rename the (in memory) attachment.
             attachment.setFilename(newAttachmentName);
             // Add the attachment to destination doc.
@@ -355,8 +464,10 @@ public class XWikiDavContext
     /**
      * Deletes the given attachment from it's document.
      * 
-     * @param attachment xwiki attachment.
-     * @throws DavException if an error occurs while accessing the wiki.
+     * @param attachment
+     *            xwiki attachment.
+     * @throws DavException
+     *             if an error occurs while accessing the wiki.
      */
     public void deleteAttachment(XWikiAttachment attachment) throws DavException
     {
@@ -374,21 +485,63 @@ public class XWikiDavContext
     /**
      * Checks whether the specified xwiki document exists or not.
      * 
-     * @param fullDocName name of the document.
+     * @param fullDocName
+     *            name of the document.
      * @return true if the documents exists.
+     * 
+     * @deprecated use {@link #documentExists} instead
      */
+    @Deprecated
     public boolean exists(String fullDocName)
     {
         return xwikiContext.getWiki().exists(fullDocName, xwikiContext);
     }
 
     /**
+     * Checks whether the specified xwiki document exists or not.
+     * 
+     * @param docRef
+     *            the reference to the document.
+     * @return true if the documents exists.
+     */
+    public boolean documentExists(DocumentReference docRef)
+    {
+        LOGGER.debug("check for document [{}]", docRef);
+        return xwikiContext.getWiki().exists(docRef, xwikiContext);
+    }
+
+    /**
+     * Checks whether the specified xwiki space exists or not.
+     * 
+     * @param spaceRef
+     *            reference to the space document.
+     * @return true if the space exists.
+     */
+    public boolean spaceExists(SpaceReference spaceRef)
+    {
+        LOGGER.debug("check for space [{}]", spaceRef);
+        try {
+            Query query = queryManager
+                .createQuery("select count(*) from XWikiSpace as space where space.reference = :ref", Query.HQL);
+            query.bindValue("ref", toStringSerializer.serialize(spaceRef));
+            return 1L == (long) query.execute().get(0);
+        } catch (QueryException e) {
+            LOGGER.warn("failed to execute query to check for existing space", e);
+            return false;
+        }
+    }
+
+    /**
      * Finds the xwiki document matching the given document name.
      * 
-     * @param fullDocName name of the xwiki document.
+     * @param fullDocName
+     *            name of the xwiki document.
      * @return xwiki document matching the given document name.
-     * @throws DavException if an error occurs while accessing the wiki.
+     * @throws DavException
+     *             if an error occurs while accessing the wiki.
+     * @deprecated use {@link #getDocument(DocumentReference)}
      */
+    @Deprecated
     public XWikiDocument getDocument(String fullDocName) throws DavException
     {
         try {
@@ -398,12 +551,48 @@ public class XWikiDavContext
         }
     }
 
+    public XWikiDocument getDocument(DocumentReference docRef) throws DavException
+    {
+        try {
+            return xwikiContext.getWiki().getDocument(docRef, xwikiContext);
+        } catch (XWikiException ex) {
+            throw new DavException(DavServletResponse.SC_INTERNAL_SERVER_ERROR, ex);
+        }
+    }
+
+    public DocumentReference getDocumentReference(String fullPath)
+    {
+        // FIXME: here better use explicit resolver ??
+        DocumentReferenceResolver<String> resolveDocs = Utils.getComponent(DocumentReferenceResolver.TYPE_STRING,
+            "default");
+        return resolveDocs.resolve(fullPath); // and here pass in the WikiRef?
+    }
+
+    public SpaceReference getSpaceReference(String fullPath)
+    {
+        // FIXME: is this the best resolver
+        SpaceReferenceResolver<String> resolveDocs = Utils.getComponent(SpaceReferenceResolver.TYPE_STRING, "default");
+        return resolveDocs.resolve(fullPath);
+    }
+
+    public WikiReference getWikiReference()
+    {
+        return xwikiContext.getWikiReference();
+    }
+
+    public String serialize(EntityReference entityRef)
+    {
+        return toStringSerializer.serialize(entityRef);
+    }
+
     /**
      * Converts the given xwiki document into an xml representation.
      * 
-     * @param document xwiki document.
+     * @param document
+     *            xwiki document.
      * @return the xml representation of the document.
-     * @throws DavException if an error occurs while accessing the wiki.
+     * @throws DavException
+     *             if an error occurs while accessing the wiki.
      */
     public String toXML(XWikiDocument document) throws DavException
     {
@@ -417,11 +606,14 @@ public class XWikiDavContext
     /**
      * Renames the given xwiki document into the new document name provided.
      * 
-     * @param document xwiki document to be renamed.
-     * @param newDocumentName new document name.
-     * @throws DavException if an error occurs while accessing the wiki.
+     * @param document
+     *            xwiki document to be renamed.
+     * @param newDocumentName
+     *            new document name.
+     * @throws DavException
+     *             if an error occurs while accessing the wiki.
      */
-    public void renameDocument(XWikiDocument document, String newDocumentName) throws DavException
+    public void renameDocument(XWikiDocument document, DocumentReference newDocumentName) throws DavException
     {
         if (document.isCurrentUserPage(xwikiContext)) {
             throw new DavException(DavServletResponse.SC_METHOD_NOT_ALLOWED);
@@ -435,13 +627,17 @@ public class XWikiDavContext
     }
 
     /**
-     * A shortcut to {@link com.xpn.xwiki.store.XWikiStoreInterface#searchDocumentsNames(String, int, int, XWikiContext)}, returns all the
-     * results found.
+     * A shortcut to
+     * {@link com.xpn.xwiki.store.XWikiStoreInterface#searchDocumentsNames(String, int, int, XWikiContext)}, returns all
+     * the results found.
      * 
-     * @param sql the HQL query string.
+     * @param sql
+     *            the HQL query string.
      * @return document names matching the given criterion.
-     * @throws DavException if an error occurs while accessing the wiki.
+     * @throws DavException
+     *             if an error occurs while accessing the wiki.
      */
+    @Deprecated
     public List<String> searchDocumentsNames(String sql) throws DavException
     {
         try {
@@ -452,14 +648,20 @@ public class XWikiDavContext
     }
 
     /**
-     * A shortcut to {@link com.xpn.xwiki.store.XWikiStoreInterface#searchDocumentsNames(String, int, int, XWikiContext)}.
+     * A shortcut to
+     * {@link com.xpn.xwiki.store.XWikiStoreInterface#searchDocumentsNames(String, int, int, XWikiContext)}.
      * 
-     * @param sql the HQL where clause.
-     * @param nb number of results expected.
-     * @param start offset.
+     * @param sql
+     *            the HQL where clause.
+     * @param nb
+     *            number of results expected.
+     * @param start
+     *            offset.
      * @return document names matching the given criterion.
-     * @throws DavException if an error occurs while accessing the wiki.
+     * @throws DavException
+     *             if an error occurs while accessing the wiki.
      */
+    @Deprecated
     public List<String> searchDocumentsNames(String sql, int nb, int start) throws DavException
     {
         try {
@@ -470,26 +672,12 @@ public class XWikiDavContext
     }
 
     /**
-     * A shortcut to {@link com.xpn.xwiki.store.XWikiStoreInterface#search(String, int, int, XWikiContext)}.
-     * 
-     * @param sql the HQL query.
-     * @return search results.
-     * @throws DavException if an error occurs while accessing the wiki.
-     */
-    public List<Object> search(String sql) throws DavException
-    {
-        try {
-            return xwikiContext.getWiki().getStore().search(sql, 0, 0, xwikiContext);
-        } catch (XWikiException ex) {
-            throw new DavException(DavServletResponse.SC_INTERNAL_SERVER_ERROR, ex);
-        }
-    }
-
-    /**
      * Saves the given xwiki document into current xwiki.
      * 
-     * @param document xwiki document to be saved.
-     * @throws DavException if an error occurs while accessing the wiki.
+     * @param document
+     *            xwiki document to be saved.
+     * @throws DavException
+     *             if an error occurs while accessing the wiki.
      */
     public void saveDocument(XWikiDocument document) throws DavException
     {
@@ -503,8 +691,10 @@ public class XWikiDavContext
     /**
      * Deletes the specified xwiki document from the current xwiki.
      * 
-     * @param document the xwiki document.
-     * @throws DavException if an error occurs while accessing the wiki.
+     * @param document
+     *            the xwiki document.
+     * @throws DavException
+     *             if an error occurs while accessing the wiki.
      */
     public void deleteDocument(XWikiDocument document) throws DavException
     {
@@ -521,13 +711,169 @@ public class XWikiDavContext
 
     /**
      * @return a list of spaces available in the current xwiki.
-     * @throws DavException if an error occurs while accessing the wiki.
+     * @throws DavException
+     *             if an error occurs while accessing the wiki.
      */
+    @Deprecated
     public List<String> getSpaces() throws DavException
     {
         try {
             return xwikiContext.getWiki().getSpaces(xwikiContext);
         } catch (XWikiException ex) {
+            throw new DavException(DavServletResponse.SC_INTERNAL_SERVER_ERROR, ex);
+        }
+    }
+
+    /**
+     * @return a list of the names of the root (topmost) spaces available in the current xwiki.
+     * @throws DavException
+     *             if an error occurs while accessing the wiki.
+     */
+    public List<String> getRootSpaces() throws DavException
+    {
+
+        try {
+            Query query = queryManager
+                .createQuery("select space.name from XWikiSpace as space where space.parent is null", Query.XWQL);
+            query.addFilter(Utils.getComponent(QueryFilter.class, "hidden/space"));
+            return query.execute();
+        } catch (QueryException ex) {
+            throw new DavException(DavServletResponse.SC_INTERNAL_SERVER_ERROR, ex);
+        }
+    }
+
+    /**
+     * @param parentSpace
+     * @return a list of the names of the child spaces of the given space.
+     * @throws DavException
+     */
+    public List<String> getChildSpaces(SpaceReference parentSpace) throws DavException
+    {
+        try {
+            Query query = queryManager
+                .createQuery("select space.name from XWikiSpace as space where space.parent = :parent", Query.XWQL);
+            query.bindValue("parent", toStringSerializer.serialize(parentSpace));
+            query.addFilter(Utils.getComponent(QueryFilter.class, "hidden/space"));
+            return query.execute();
+        } catch (QueryException ex) {
+            throw new DavException(DavServletResponse.SC_INTERNAL_SERVER_ERROR, ex);
+        }
+    }
+
+    /**
+     * @param parentSpace
+     * @return a list of references to the pages of the given space.
+     * @throws DavException
+     */
+    public List<DocumentReference> getChildPages(SpaceReference parentSpace) throws DavException
+    {
+        try {
+            Query query = queryManager.createQuery("where doc.web = :space", Query.XWQL);
+            query.bindValue("space", toStringSerializer.serialize(parentSpace));
+            return execDocQueryWithFilters(query);
+        } catch (QueryException ex) {
+            throw new DavException(DavServletResponse.SC_INTERNAL_SERVER_ERROR, ex);
+        }
+    }
+
+    /**
+     * return the child pages in the old parent/child relationship
+     * 
+     * @param parentPage
+     * @return a list of references to the child pages of the page.
+     * @throws DavException
+     */
+    public List<DocumentReference> getChildPages(DocumentReference parentDoc) throws DavException
+    {
+        try {
+            Query query = queryManager.createQuery("where doc.parent = :parent", Query.XWQL);
+            query.bindValue("parent", toStringSerializer.serialize(parentDoc));
+            return execDocQueryWithFilters(query);
+        } catch (QueryException ex) {
+            throw new DavException(DavServletResponse.SC_INTERNAL_SERVER_ERROR, ex);
+        }
+    }
+
+    /**
+     * @param parentSpace
+     * @param the
+     *            prefix the pages should start with
+     * @return a list of the references to the pages of the given space.
+     * @throws DavException
+     */
+    public List<DocumentReference> getChildPagesWithPrefix(SpaceReference parentSpace, String prefix)
+        throws DavException
+    {
+        try {
+            Query query = queryManager.createQuery("where doc.web = :space and upper(doc.name) like :prefix",
+                Query.XWQL);
+            query.bindValue("space", toStringSerializer.serialize(parentSpace));
+            query.bindValue("prefix").literal(prefix).anyChars().query();
+            return execDocQueryWithFilters(query);
+        } catch (QueryException ex) {
+            throw new DavException(DavServletResponse.SC_INTERNAL_SERVER_ERROR, ex);
+        }
+    }
+
+    // small helper that only works with XWQL queries on documents
+    private List<DocumentReference> execDocQueryWithFilters(Query query) throws QueryException
+    {
+        query.addFilter(Utils.getComponent(QueryFilter.class, "hidden/document"));
+        query.addFilter(Utils.getComponent(QueryFilter.class, "document"));
+        query.addFilter(Utils.getComponent(QueryFilter.class, "viewable"));
+        return query.execute();
+    }
+
+    /**
+     * @return a list of references to pages having attachments.
+     * @throws DavException
+     */
+    // FIXME: this is unlikely to scale well ...
+    public List<DocumentReference> getPagesWithAttachments() throws DavException
+    {
+        try {
+            Query query = queryManager.createQuery(
+                "select doc.fullName from XWikiDocument as doc, XWikiAttachment as attach where doc.id = attach.docId",
+                Query.XWQL);
+            return execDocQueryWithFilters(query);
+        } catch (QueryException ex) {
+            throw new DavException(DavServletResponse.SC_INTERNAL_SERVER_ERROR, ex);
+        }
+    }
+
+    /**
+     * @param parentSpace
+     * @return a list of references to pages in the given space having attachments
+     * @throws DavException
+     */
+    public List<DocumentReference> getPagesWithAttachmentsInSpace(SpaceReference parentSpace) throws DavException
+    {
+        try {
+            Query query = queryManager.createQuery(
+                "select doc.fullName from XWikiDocument as doc, XWikiAttachment as attach where doc.id = attach.docId and doc.web = :space",
+                Query.XWQL);
+            query.bindValue("space", toStringSerializer.serialize(parentSpace));
+            return execDocQueryWithFilters(query);
+        } catch (QueryException ex) {
+            throw new DavException(DavServletResponse.SC_INTERNAL_SERVER_ERROR, ex);
+        }
+    }
+
+    /**
+     * @param document
+     *            a reference to the given page
+     * @return a list of file names of attachments for the given page
+     * @throws DavException
+     */
+    public List<String> getAttachmentsForPage(DocumentReference document) throws DavException
+    {
+        try {
+            Query query = queryManager.createQuery(
+                "select attach.filename from XWikiDocument as doc, XWikiAttachment as attach where doc.id = attach.docId and doc.fullName = :doc",
+                Query.XWQL);
+            query.bindValue("doc", toStringSerializer.serialize(document));
+            return query.execute();
+        } catch (QueryException ex) {
             throw new DavException(DavServletResponse.SC_INTERNAL_SERVER_ERROR, ex);
         }
     }
@@ -577,7 +923,8 @@ public class XWikiDavContext
     /**
      * Utility method for checking whether the current webdav request is trying to move / rename an attachment.
      * 
-     * @param doc the xwiki document to which the attachment belongs to.
+     * @param doc
+     *            the xwiki document to which the attachment belongs to.
      * @return true if the current webdav request is about moving (or renaming) an attachment from the given xwiki
      *         document.
      */
