@@ -39,11 +39,11 @@
   <minorEdit>false</minorEdit>
   <syntaxId>plain/1.0</syntaxId>
   <hidden>true</hidden>
-  <content>webdav.page.info=This is a hosting page for webdav related functions.
+  <content>webdav.page.info=This is a page hosting webdav related functions.
 webdav.alert.error=Ooops! Something went wrong... Please try again.
-webdav.alert.sorry=Sorry, to use this feature you need either Firefox or Internet Explorer.
+webdav.alert.unsupported=Sorry, this feature is not supported by your browser.
 webdav.alert.initialize.activex=Could not initialize a required ActiveX object.
-webdav.dialog.install.foxwiki=A Firefox extension is required to perform this action, install it?</content>
+</content>
   <object>
     <name>WebDAV.Code.Translations</name>
     <number>0</number>

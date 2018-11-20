@@ -129,6 +129,14 @@ XWiki.WebDAV = {
   addDavLinks: function(domNode) {
 
     function displayDavLink(node) {
+      // there is no API to get the "current" attachment name from the list
+      // try to extract it from the download link
+      var downloadLink = node.down("div.information").down('span.name').down('a');
+      var fileName = downloadLink.getAttribute('href').replace(/.*\//,'');
+      if (XWiki.WebDAV._getProtocol(fileName) == null) {
+        return;
+      }
+
       var davLink = new Element('a');
       davLink.insert(new Element('span').addClassName("fa fa-pencil-square-o"));
       davLink.addClassName("btn btn-xs btn-default");
@@ -137,11 +145,8 @@ XWiki.WebDAV = {
         davUrl = davUrl + escape(XWiki.currentDocument.spaces[i]).replace(/\//g,'%2F') +'/'
       }
       davUrl = davUrl + escape(XWiki.currentDocument.page).replace(/\//g,'%2F') +'/'
-      // there is no API to get the "current" attachment name from the list
-      // try to extract it from the download link
-      var downloadLink = node.down("div.information").down('span.name').down('a');
-      davUrl = davUrl + downloadLink.getAttribute('href').replace(/.*\//,'');
 
+      davUrl = davUrl + fileName;
       davLink.setAttribute("href", davUrl);
       node.down("div[class*='btn-group xwikibuttonlinks']").insert({ 'top' : davLink});
       Event.observe(davLink, 'click', function(event) {
@@ -150,11 +155,53 @@ XWiki.WebDAV = {
       });
     }
 
-    // add Dav links only if the browser is going to support it
-    if(window.ActiveXObject || window.InstallTrigger) {
-      domNode &amp;&amp; domNode.select(".attachment").each(displayDavLink);
-    }
+    // add WebDAV links and hope the browser is going to support it
+    domNode &amp;&amp; domNode.select(".attachment").each(displayDavLink);
   },
+
+  protocols : {
+    'doc' : 'ms-word:ofe|u|',
+    'dot' : 'ms-word:nft|u|',
+    'docx' : 'ms-word:ofe|u|',
+    'docm' : 'ms-word:ofe|u|',
+    'dotx' : 'ms-word:nft|u|',
+    'dotm' : 'ms-word:nft|u|',
+    'odt' : 'ms-word:ofe|u|',
+    'xls' : 'ms-excel:ofe|u|',
+    'xlsx' : 'ms-excel:ofe|u|',
+    'xlsm' : 'ms-excel:ofe|u|',
+    'xlt' : 'ms-excel:nft|u|',
+    'xltx' : 'ms-excel:nft|u|',
+    'xltm' : 'ms-excel:nft|u|',
+    'ppt' : 'ms-powerpoint:ofe|u|',
+    'pot' : 'ms-powerpoint:nft|u|',
+    'pptx' : 'ms-powerpoint:ofe|u|',
+    'pptm' : 'ms-powerpoint:ofe|u|',
+    'potx' : 'ms-powerpoint:nft|u|',
+    'potm' : 'ms-powerpoint:nft|u|',
+    'pub' : 'ms-publisher:ofe|u|',
+    'vsd' : 'ms-visio:ofe|u|',
+    // 'vdx' : 'ms-visio:ofe|u|', // this might conflict with a win system driver suffix
+    'vsdx' : 'ms-visio:ofe|u|',
+    'mdb' : 'ms-access:ofe|u|',
+    'mdt' : 'ms-access:nft|u|',
+    'accdb' : 'ms-access:ofe|u|',
+    'mpp' : 'ms-project:ofe|u|',
+    'mpd' : 'ms-project:ofe|u|',
+    'mpt' : 'ms-project:nft|u|',
+    'pub' : 'ms-publisher:ofe|u|',
+    'dwt' : 'ms-spd:ofe|u|',
+    'fwp' : 'ms-spd:ofe|u|'
+  },
+
+  _getProtocol: function(fileName) {
+      var _fileName = fileName.replace(/.*\//,'');
+      var suffixPos = _fileName.lastIndexOf('.');
+      var suffix = _fileName.substring(suffixPos+1);
+      var protocol = XWiki.WebDAV.protocols[suffix];
+      return protocol;
+  },
+
   davEdit: function(davURL) {
     if (window.ActiveXObject) {
       var editor;
@@ -170,25 +217,16 @@ XWiki.WebDAV = {
         window.alert("$services.localization.render('webdav.alert.error')");
         return;
       }
-    } else if (window.InstallTrigger) {
-      if ("createEvent" in document) {
-        var element = document.createElement("FoXWikiDomEventData");
-        element.setAttribute("davURL", davURL);
-        element.setAttribute("foxwiki", "false");
-        document.documentElement.appendChild(element);
-        var evt = document.createEvent("Events");
-        evt.initEvent("FoXWikiDomEvent", true, false);
-        element.dispatchEvent(evt);
-        if (element.getAttribute("foxwiki") == "false") {
-          if (window.confirm("$services.localization.render('webdav.dialog.install.foxwiki')")) {
-            window.InstallTrigger.install( {"FoXWiki" :"https://addons.mozilla.org/en-US/firefox/downloads/file/39674/foxwiki-1.0b-fx.xpi"});
-          }
-        }
-      } else {
-        window.alert("$services.localization.render('webdav.alert.error')");
-      }
     } else {
-      window.alert("$services.localization.render('webdav.alert.sorry')");
+      // console.log('open url ', davURL);
+      var protocol = XWiki.WebDAV._getProtocol(davURL);
+
+      davURL = window.location.protocol + '//' + window.location.host + davURL;
+      davURL = protocol + davURL;
+
+      window.aaronk6.launchUri(davURL, function () {/* SUCCESS */},
+                         function () { window.alert("$services.localization.render('webdav.alert.sorry')") },
+                         function () { window.alert("$services.localization.render('webdav.alert.unsupported')") });
     }
   }
 };
@@ -216,6 +254,225 @@ function initWebDAV() {
     </property>
     <property>
       <parse>1</parse>
+    </property>
+    <property>
+      <use>always</use>
+    </property>
+  </object>
+  <object>
+    <name>WebDAV.Code.UI</name>
+    <number>1</number>
+    <className>XWiki.JavaScriptExtension</className>
+    <guid>360ac22a-4a1a-4625-ad21-2f565dbc3f99</guid>
+    <class>
+      <name>XWiki.JavaScriptExtension</name>
+      <customClass/>
+      <customMapping/>
+      <defaultViewSheet/>
+      <defaultEditSheet/>
+      <defaultWeb/>
+      <nameField/>
+      <validationScript/>
+      <cache>
+        <cache>0</cache>
+        <disabled>0</disabled>
+        <displayType>select</displayType>
+        <multiSelect>0</multiSelect>
+        <name>cache</name>
+        <number>5</number>
+        <prettyName>Caching policy</prettyName>
+        <relationalStorage>0</relationalStorage>
+        <separator> </separator>
+        <separators>|, </separators>
+        <size>1</size>
+        <unmodifiable>0</unmodifiable>
+        <values>long|short|default|forbid</values>
+        <classType>com.xpn.xwiki.objects.classes.StaticListClass</classType>
+      </cache>
+      <code>
+        <contenttype>PureText</contenttype>
+        <disabled>0</disabled>
+        <editor>PureText</editor>
+        <name>code</name>
+        <number>2</number>
+        <prettyName>Code</prettyName>
+        <rows>20</rows>
+        <size>50</size>
+        <unmodifiable>0</unmodifiable>
+        <classType>com.xpn.xwiki.objects.classes.TextAreaClass</classType>
+      </code>
+      <name>
+        <disabled>0</disabled>
+        <name>name</name>
+        <number>1</number>
+        <prettyName>Name</prettyName>
+        <size>30</size>
+        <unmodifiable>0</unmodifiable>
+        <classType>com.xpn.xwiki.objects.classes.StringClass</classType>
+      </name>
+      <parse>
+        <disabled>0</disabled>
+        <displayFormType>select</displayFormType>
+        <displayType>yesno</displayType>
+        <name>parse</name>
+        <number>4</number>
+        <prettyName>Parse content</prettyName>
+        <unmodifiable>0</unmodifiable>
+        <classType>com.xpn.xwiki.objects.classes.BooleanClass</classType>
+      </parse>
+      <use>
+        <cache>0</cache>
+        <disabled>0</disabled>
+        <displayType>select</displayType>
+        <multiSelect>0</multiSelect>
+        <name>use</name>
+        <number>3</number>
+        <prettyName>Use this extension</prettyName>
+        <relationalStorage>0</relationalStorage>
+        <separator> </separator>
+        <separators>|, </separators>
+        <size>1</size>
+        <unmodifiable>0</unmodifiable>
+        <values>currentPage|onDemand|always</values>
+        <classType>com.xpn.xwiki.objects.classes.StaticListClass</classType>
+      </use>
+    </class>
+    <property>
+      <cache>long</cache>
+    </property>
+    <property>
+      <code>/*
+ * Copyright © 2015 aaronk6
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+// small change to have the function in its own "namespace"
+var aaronk6 = window.aaronk6 || {}
+aaronk6.launchUri = function(uri, successCallback, noHandlerCallback, unknownCallback) {
+	var res, parent, popup, iframe, timer, timeout, blurHandler, timeoutHandler, browser;
+
+	function callback (cb) {
+		if (typeof cb === 'function') cb();
+	}
+
+	function createHiddenIframe (parent) {
+		var iframe;
+		if (!parent) parent = document.body;
+		iframe = document.createElement('iframe');
+		iframe.style.display = 'none';
+		parent.appendChild(iframe);
+		return iframe;
+	}
+
+	function removeHiddenIframe(parent) {
+		if (!iframe) return;
+		if (!parent) parent = document.body;
+		parent.removeChild(iframe);
+		iframe = null;
+	}
+
+	browser = { isChrome: false, isFirefox: false, isIE: false };
+
+	if (window.chrome &amp;&amp; !navigator.userAgent.match(/Opera|OPR\//)) {
+		browser.isChrome = true;
+	} else if (typeof InstallTrigger !== 'undefined') {
+		browser.isFirefox = true;
+	} else if ('ActiveXObject' in window) {
+		browser.isIE = true;
+	}
+
+	// Proprietary msLaunchUri method (IE 10+ on Windows 8+)
+	if (navigator.msLaunchUri) {
+		navigator.msLaunchUri(uri, successCallback, noHandlerCallback);
+	}
+	// Blur hack (Chrome)
+	else if (browser.isChrome) {
+		blurHandler = function () {
+			window.clearTimeout(timeout);
+			window.removeEventListener('blur', blurHandler);
+			callback(successCallback);
+		};
+		timeoutHandler = function () {
+			window.removeEventListener('blur', blurHandler);
+			callback(noHandlerCallback);
+		};
+		window.addEventListener('blur', blurHandler);
+		timeout = window.setTimeout(timeoutHandler, 500);
+		window.location.href = uri;
+	}
+	// Catch NS_ERROR_UNKNOWN_PROTOCOL exception (Firefox)
+	else if (browser.isFirefox) {
+		iframe = createHiddenIframe();
+		try {
+			// if we're still allowed to change the iframe's location, the protocol is registered
+			iframe.contentWindow.location.href = uri;
+			callback(successCallback);
+		} catch (e) {
+			if (e.name === 'NS_ERROR_UNKNOWN_PROTOCOL') {
+				callback(noHandlerCallback);
+			} else {
+				callback(unknownCallback);
+			}
+		} finally {
+			removeHiddenIframe();
+		}
+	}
+	// Open popup, change location, check wether we can access the location after the change (IE on Windows &lt; 8)
+	else if (browser.isIE) {
+		popup = window.open('', 'launcher', 'width=0,height=0');
+		popup.location.href = uri;
+		try {
+			// Try to change the popup's location - if it fails, the protocol isn't registered
+			// and we'll end up in the `catch` block.
+			popup.location.href = 'about:blank';
+			callback(successCallback);
+			// The user will be shown a modal dialog to allow the external application. While
+			// this dialog is open, we cannot close the popup, so we try again and again until
+			// we succeed.
+			timer = window.setInterval(function () {
+				popup.close();
+				if (popup.closed) window.clearInterval(timer);
+			}, 500);
+		} catch (e) {
+			// Regain access to the popup in order to close it.
+			popup = window.open('about:blank', 'launcher');
+			popup.close();
+			callback(noHandlerCallback);
+		}
+	}
+	// No hack we can use, just open the URL in an hidden iframe and invoke `unknownCallback`
+	else {
+		iframe = createHiddenIframe();
+		iframe.contentWindow.location.href = uri;
+		window.setTimeout(function () {
+			removeHiddenIframe(parent);
+			callback(unknownCallback);
+		}, 500);
+	}
+}</code>
+    </property>
+    <property>
+      <name>https://gist.github.com/aaronk6/d801d750f14ac31845e8</name>
+    </property>
+    <property>
+      <parse>0</parse>
     </property>
     <property>
       <use>always</use>

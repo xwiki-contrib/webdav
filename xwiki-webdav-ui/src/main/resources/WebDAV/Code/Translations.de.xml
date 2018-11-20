@@ -41,7 +41,6 @@
   <hidden>true</hidden>
   <content>webdav.page.info=Dies ist eine f\u00FCr Webdav-Funktionen bereitgestellte Seite.
 webdav.alert.error=Ooops! Etwas ist schief gegangen... Bitte versuchen Sie es erneut.
-webdav.alert.sorry=Um dieses Funktion verwenden zu k\u00F6nne m\u00FCssen Sie entweder Firefox oder Internet Explorer verwenden.
-webdav.alert.initialize.activex=Ben\u00F6tigtes ActiveX-Objekt konnte nicht initialisiert werden.
-webdav.dialog.install.foxwiki=Um diese Aktion auszuf\u00FChren wird eine Firefox-Erweiterung ben\u00F6tigt. Installieren?</content>
+webdav.alert.unsupported=Diese Funktion wird von Ihrem Browser nicht unterst\u00FCtzt.
+webdav.alert.initialize.activex=Ben\u00F6tigtes ActiveX-Objekt konnte nicht initialisiert werden.</content>
 </xwikidoc>
