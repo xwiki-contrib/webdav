@@ -20,6 +20,7 @@
 package org.xwiki.contrib.webdav.resources.partial;
 
 import org.xwiki.model.reference.EntityReference;
+import org.xwiki.stability.Unstable;
 
 /**
  * A base class for all "virtual" views, which have no reference to a wiki ressource (document, space, attachment, etc)
@@ -29,9 +30,9 @@ import org.xwiki.model.reference.EntityReference;
  * @version $Id$
  *
  */
+@Unstable
 public abstract class AbstractVirtualDavView extends AbstractDavView
 {
-
     /**
      * a virtual view has no associated entity reference.
      * 
@@ -42,5 +43,4 @@ public abstract class AbstractVirtualDavView extends AbstractDavView
     {
         return null;
     }
-
 }
