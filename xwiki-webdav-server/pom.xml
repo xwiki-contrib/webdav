@@ -25,7 +25,7 @@
   <parent>
     <groupId>org.xwiki.contrib</groupId>
     <artifactId>xwiki-webdav</artifactId>
-    <version>9.5</version>
+    <version>9.6-SNAPSHOT</version>
   </parent>
   <artifactId>xwiki-webdav-server</artifactId>
   <packaging>jar</packaging>
