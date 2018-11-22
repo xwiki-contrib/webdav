@@ -225,8 +225,8 @@ XWiki.WebDAV = {
       davURL = protocol + davURL;
 
       window.aaronk6.launchUri(davURL, function () {/* SUCCESS */},
-                         function () { window.alert("$services.localization.render('webdav.alert.sorry')") },
-                         function () { window.alert("$services.localization.render('webdav.alert.unsupported')") });
+                         function () { window.alert("$services.localization.render('webdav.alert.unsupported)") },
+                         function () { window.alert("$services.localization.render('webdav.alert.error)") });
     }
   }
 };
