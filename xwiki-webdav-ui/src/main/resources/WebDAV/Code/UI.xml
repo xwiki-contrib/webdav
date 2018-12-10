@@ -142,9 +142,9 @@ XWiki.WebDAV = {
       davLink.addClassName("btn btn-xs btn-default");
       var davUrl = XWiki.contextPath + '/webdav/spaces/'
       for (var i = 0; i &lt; XWiki.currentDocument.spaces.length; i++) {
-        davUrl = davUrl + escape(XWiki.currentDocument.spaces[i]).replace(/\//g,'%2F') +'/'
+        davUrl = davUrl + encodeURIComponent(XWiki.currentDocument.spaces[i]) +'/'
       }
-      davUrl = davUrl + escape(XWiki.currentDocument.page).replace(/\//g,'%2F') +'/'
+      davUrl = davUrl + encodeURIComponent(XWiki.currentDocument.page) +'/'
 
       davUrl = davUrl + fileName;
       davLink.setAttribute("href", davUrl);
