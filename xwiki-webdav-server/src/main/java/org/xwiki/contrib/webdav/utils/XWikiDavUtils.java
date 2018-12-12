@@ -20,6 +20,7 @@
 package org.xwiki.contrib.webdav.utils;
 
 import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.net.URLEncoder;
 
 import com.xpn.xwiki.api.Attachment;
@@ -144,6 +145,15 @@ public final class XWikiDavUtils
     {
         try {
             return URLEncoder.encode(pathNamePart, "UTF-8").replaceAll("\\+", "%20");
+        } catch (UnsupportedEncodingException e) {
+            throw new RuntimeException("UTF-8 not supported; this should not happen", e);
+        }
+    }
+
+    public static String decode(String pathNamePart)
+    {
+        try {
+            return URLDecoder.decode(pathNamePart, "UTF-8");
         } catch (UnsupportedEncodingException e) {
             throw new RuntimeException("UTF-8 not supported; this should not happen", e);
         }

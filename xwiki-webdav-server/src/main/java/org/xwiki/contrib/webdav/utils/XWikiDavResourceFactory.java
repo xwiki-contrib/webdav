@@ -83,11 +83,30 @@ public class XWikiDavResourceFactory implements DavResourceFactory
         XWikiDavResource root = new RootView();
         root.init("webdav", rootLocator, context);
         String workspacePath = locator.getWorkspacePath();
-        String[] tokens = locator.getResourcePath().split("/");
+        // we cannot use the locator.getResourcePath() as this returns the path already url decoded
+        // instead we have to use the raw request URI - see WEBDAV-18
+        String[] tokens = extractTokens(request);
         if (workspacePath != null && workspacePath.equals(baseURI) && (tokens.length >= 2)) {
             return (tokens.length == 2) ? root : root.decode(tokens, 2);
         } else {
             throw new DavException(DavServletResponse.SC_BAD_REQUEST);
         }
+    }
+
+    private String[] extractTokens(DavServletRequest request)
+    {
+        String webAppContext = request.getContextPath();
+        String requestUri = request.getRequestURI();
+        requestUri = requestUri.substring(webAppContext.length(), requestUri.length());
+        // strip trailing slashes
+        requestUri = requestUri.replace("/+$", "");
+
+        String[] pathParts = requestUri.split("/");
+        String[] tokens = new String[pathParts.length];
+
+        for (int i=0; i<pathParts.length; i++) {
+            tokens[i] = XWikiDavUtils.decode(pathParts[i]);
+        }
+        return tokens;
     }
 }
