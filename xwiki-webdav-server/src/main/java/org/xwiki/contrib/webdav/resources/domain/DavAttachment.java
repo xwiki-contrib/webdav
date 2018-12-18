@@ -22,6 +22,7 @@ package org.xwiki.contrib.webdav.resources.domain;
 import java.io.IOException;
 import java.io.OutputStream;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.jackrabbit.server.io.IOUtil;
 import org.apache.jackrabbit.webdav.DavConstants;
 import org.apache.jackrabbit.webdav.DavException;
@@ -102,16 +103,16 @@ public class DavAttachment extends AbstractDavFile
         if (!getContext().hasAccess("view", attachment.getDoc().getDocumentReference())) {
             throw new IOException("Access rights violation.");
         }
-        outputContext.setContentLanguage(attachment.getDoc().getLanguage());
-        outputContext.setContentLength(attachment.getLongSize());
-        outputContext.setContentType(getContext().getMimeType(attachment));
-        outputContext.setETag(DavConstants.modificationDateFormat.format(getModificationTime()));
-        outputContext.setModificationTime(getModificationTime());
         if (exists()) {
+            outputContext.setContentLanguage(attachment.getDoc().getLanguage());
+            outputContext.setContentLength(attachment.getLongSize());
+            outputContext.setContentType(getContext().getMimeType(attachment));
+            outputContext.setETag(DavConstants.modificationDateFormat.format(getModificationTime()));
+            outputContext.setModificationTime(getModificationTime());
             OutputStream out = outputContext.getOutputStream();
             if (null != out) {
                 try {
-                    out.write(getContext().getContent(attachment));
+                    IOUtils.copy(getContext().getContentInputStream(attachment), out);
                     out.flush();
                 } catch (DavException ex) {
                     throw new IOException(ex.getMessage());

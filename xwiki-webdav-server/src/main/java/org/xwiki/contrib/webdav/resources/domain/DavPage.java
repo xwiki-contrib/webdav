@@ -20,6 +20,7 @@
 package org.xwiki.contrib.webdav.resources.domain;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -182,14 +183,15 @@ public class DavPage extends AbstractDavResource
             getContext().saveDocument(childDoc);
         } else if (isFile) {
             String fName = resource.getDisplayName();
-            byte[] data = getContext().getFileContentAsBytes(inputContext.getInputStream());
             if (fName.equals(DavWikiFile.WIKI_TXT)) {
-                doc.setContent(new String(data));
+                String data = getContext().getFileContentAsString(inputContext.getInputStream());
+                doc.setContent(data);
                 getContext().saveDocument(doc);
             } else if (fName.equals(DavWikiFile.WIKI_XML)) {
                 throw new DavException(DavServletResponse.SC_METHOD_NOT_ALLOWED);
             } else {
-                getContext().addAttachment(doc, data, fName);
+                InputStream in = inputContext.getInputStream();
+                getContext().addAttachment(doc, in, fName, inputContext.getContentType());
             }
         } else {
             throw new DavException(DavServletResponse.SC_INTERNAL_SERVER_ERROR);

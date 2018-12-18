@@ -21,6 +21,7 @@ package org.xwiki.contrib.webdav.utils;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.Charset;
 import java.util.List;
 
 import javax.servlet.ServletContext;
@@ -355,10 +356,29 @@ public class XWikiDavContext
      * @throws DavException
      *             if an error occurs while reading the attachment.
      */
+    @Deprecated
     public byte[] getContent(XWikiAttachment attachment) throws DavException
     {
         try {
             return attachment.getContent(xwikiContext);
+        } catch (XWikiException ex) {
+            throw new DavException(DavServletResponse.SC_INTERNAL_SERVER_ERROR, ex);
+        }
+    }
+
+    /**
+     * Returns the content of the attachment as an input stream.
+     *
+     * @param attachment
+     *            xwiki attachment.
+     * @return content as a input stream.
+     * @throws DavException
+     *             if an error occurs while reading the attachment.
+     */
+    public InputStream getContentInputStream(XWikiAttachment attachment) throws DavException
+    {
+        try {
+            return attachment.getContentInputStream(xwikiContext);
         } catch (XWikiException ex) {
             throw new DavException(DavServletResponse.SC_INTERNAL_SERVER_ERROR, ex);
         }
@@ -373,6 +393,7 @@ public class XWikiDavContext
      * @throws DavException
      *             if an error occurs while reading the input stream.
      */
+    @Deprecated
     public byte[] getFileContentAsBytes(InputStream in) throws DavException
     {
         try {
@@ -383,18 +404,39 @@ public class XWikiDavContext
     }
 
     /**
+     * Utility method for reading a given input stream into a string.
+     *
+     * @param in
+     *            input stream.
+     * @return string holding the input stream data, decoded from UTF-8
+     * @throws DavException
+     *             if an error occurs while reading the input stream.
+     */
+    public String getFileContentAsString(InputStream in) throws DavException
+    {
+        try {
+            return IOUtils.toString(in, Charset.forName("utf-8"));
+        } catch (IOException ex) {
+            throw new DavException(DavServletResponse.SC_INTERNAL_SERVER_ERROR, ex);
+        }
+    }
+
+    /**
      * Adds an attachment to the {@link XWikiDocument} represented by this resource.
      * 
-     * @param attachmentName
-     *            Name of this attachment.
-     * @param data
-     *            Data to be put into the attachment (file content).
      * @param doc
      *            The document to which the attachment is made.
+     * @param data
+     *            Data to be put into the attachment (file content).
+     * @param attachmentName
+     *            Name of this attachment.
+     * @param attachmentMimeType
+     *            the mime-type of this attachment, can be null if unknown.
      * @throws DavException
      *             Indicates an internal error.
      */
-    public void addAttachment(XWikiDocument doc, byte[] data, String attachmentName) throws DavException
+    public void addAttachment(XWikiDocument doc, InputStream data, String attachmentName, String attachmentMimeType)
+        throws DavException
     {
         int i = attachmentName.indexOf("\\");
         if (i == -1) {
@@ -408,9 +450,16 @@ public class XWikiDavContext
             doc.getAttachmentList().add(attachment);
         }
 
-        attachment.setContent(data);
+        try {
+            attachment.setContent(data);
+        } catch (IOException ioe) {
+            throw new DavException(DavServletResponse.SC_INTERNAL_SERVER_ERROR, ioe);
+        }
         attachment.setFilename(filename);
         attachment.setAuthorReference(xwikiContext.getUserReference());
+        if (attachmentMimeType != null) {
+            attachment.setMimeType(attachmentMimeType);
+        }
 
         // Add the attachment to the document
         attachment.setDoc(doc);
