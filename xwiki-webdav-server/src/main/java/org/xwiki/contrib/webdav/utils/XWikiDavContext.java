@@ -375,12 +375,12 @@ public class XWikiDavContext
      * @throws DavException
      *             if an error occurs while reading the attachment.
      */
-    public InputStream getContentInputStream(XWikiAttachment attachment) throws DavException
+    public InputStream getContentInputStream(XWikiAttachment attachment) throws IOException
     {
         try {
             return attachment.getContentInputStream(xwikiContext);
         } catch (XWikiException ex) {
-            throw new DavException(DavServletResponse.SC_INTERNAL_SERVER_ERROR, ex);
+            throw new IOException(String.format("cannot read attachment [{}]", attachment.getFilename()), ex);
         }
     }
 

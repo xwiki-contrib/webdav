@@ -111,11 +111,9 @@ public class DavAttachment extends AbstractDavFile
             outputContext.setModificationTime(getModificationTime());
             OutputStream out = outputContext.getOutputStream();
             if (null != out) {
-                try {
-                    IOUtils.copy(getContext().getContentInputStream(attachment), out);
-                    out.flush();
-                } catch (DavException ex) {
-                    throw new IOException(ex.getMessage());
+                try (OutputStream outf = out) {
+                    IOUtils.copy(getContext().getContentInputStream(attachment), outf);
+                    outf.flush();
                 }
             }
         }

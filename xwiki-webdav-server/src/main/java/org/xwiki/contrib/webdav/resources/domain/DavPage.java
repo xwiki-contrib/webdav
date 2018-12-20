@@ -190,8 +190,11 @@ public class DavPage extends AbstractDavResource
             } else if (fName.equals(DavWikiFile.WIKI_XML)) {
                 throw new DavException(DavServletResponse.SC_METHOD_NOT_ALLOWED);
             } else {
-                InputStream in = inputContext.getInputStream();
-                getContext().addAttachment(doc, in, fName, inputContext.getContentType());
+                try (InputStream in = inputContext.getInputStream()) {
+                    getContext().addAttachment(doc, in, fName, inputContext.getContentType());
+                } catch (IOException ioe) {
+                    throw new DavException(DavServletResponse.SC_INTERNAL_SERVER_ERROR, ioe);
+                }
             }
         } else {
             throw new DavException(DavServletResponse.SC_INTERNAL_SERVER_ERROR);
