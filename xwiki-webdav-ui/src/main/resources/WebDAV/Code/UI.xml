@@ -236,7 +236,7 @@ return XWiki;
 
 function initWebDAV() {
   function checkAttachmentLoaded(event) {
-    if (event &amp;&amp; event.memo.id != "Attachments") {
+    if (event &amp;&amp; event.memo &amp;&amp; event.memo.id &amp;&amp; event.memo.id != "Attachments") {
       return;
     }
     var attContainer = document.getElementById("attachmentscontent");
@@ -246,6 +246,7 @@ function initWebDAV() {
   }
   checkAttachmentLoaded();
   document.observe("xwiki:docextra:loaded", checkAttachmentLoaded);
+  document.observe("xwiki:html5upload:done", checkAttachmentLoaded);
 }
 (XWiki.domIsLoaded &amp;&amp; initWebDAV()) || document.observe("xwiki:dom:loaded", initWebDAV);</code>
     </property>
