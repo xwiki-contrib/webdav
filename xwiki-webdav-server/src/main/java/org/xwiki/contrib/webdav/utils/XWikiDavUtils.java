@@ -58,6 +58,9 @@ public final class XWikiDavUtils
      */
     public static final String XWIKI_WEBDAV_SIGNATURE = "/webdav/spaces/";
 
+    private static final String UTF8 = "UTF-8";
+    private static final String UTF8_MISSING_ERROR_MSG = "UTF-8 not supported; this should not happen";
+
     /**
      * An interface for collecting all base views.
      */
@@ -139,23 +142,28 @@ public final class XWikiDavUtils
     /**
      * URL encode path segments in UTF-8.
      * @param pathNamePart the segment of the path to encode
-     * @return the encoded part of the path
+     * @return the encoded segment of the path
      */
     public static String encode(String pathNamePart)
     {
         try {
-            return URLEncoder.encode(pathNamePart, "UTF-8").replaceAll("\\+", "%20");
+            return URLEncoder.encode(pathNamePart, UTF8).replaceAll("\\+", "%20");
         } catch (UnsupportedEncodingException e) {
-            throw new RuntimeException("UTF-8 not supported; this should not happen", e);
+            throw new RuntimeException(UTF8_MISSING_ERROR_MSG, e);
         }
     }
 
+    /**
+     * URL decode path segments in UTF-8.
+     * @param pathNamePart the segment of the path to decode
+     * @return the decoded segment of the path
+     */
     public static String decode(String pathNamePart)
     {
         try {
-            return URLDecoder.decode(pathNamePart, "UTF-8");
+            return URLDecoder.decode(pathNamePart, UTF8);
         } catch (UnsupportedEncodingException e) {
-            throw new RuntimeException("UTF-8 not supported; this should not happen", e);
+            throw new RuntimeException(UTF8_MISSING_ERROR_MSG, e);
         }
     }
 

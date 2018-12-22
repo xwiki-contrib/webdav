@@ -478,8 +478,14 @@ public class XWikiDavContext
         }
     }
 
-    // just a helper to workaround XWIKI-15669 for people who did not upgrade
-    // attachment.getLongSize() should just work as well for XWiki 9.11.8 and later
+    /**
+     * just a helper to workaround XWIKI-15669 for people who did not upgrade.
+     * attachment.getLongSize() should just work as well for XWiki 9.11.8 and later
+     * @param attachment the attachment whose size is asked for; should not be null
+     * @return the size of the attachment in bytes
+     * @throws IOException
+     * @Deprecated will be removed when dependency shifts to XWiki 10.x
+     */
     @Deprecated
     public long getAttachmentSize(XWikiAttachment attachment) throws IOException
     {
