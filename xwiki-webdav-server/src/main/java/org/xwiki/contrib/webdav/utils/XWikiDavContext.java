@@ -380,7 +380,7 @@ public class XWikiDavContext
         try {
             return attachment.getContentInputStream(xwikiContext);
         } catch (XWikiException ex) {
-            throw new IOException(String.format("cannot read attachment [{}]", attachment.getFilename()), ex);
+            throw new IOException(String.format("cannot read attachment [%s]", attachment.getFilename()), ex);
         }
     }
 
@@ -470,9 +470,23 @@ public class XWikiDavContext
         }
 
         try {
+            // the next line is a workaround for XWIKI-15669 (size is affected, too)
+            attachment.setLongSize(attachment.getContentLongSize(xwikiContext));
             xwikiContext.getWiki().saveDocument(doc, "[WEBDAV] Attachment " + filename + " added.", xwikiContext);
         } catch (XWikiException ex) {
             throw new DavException(DavServletResponse.SC_INTERNAL_SERVER_ERROR, ex);
+        }
+    }
+
+    // just a helper to workaround XWIKI-15669 for people who did not upgrade
+    // attachment.getLongSize() should just work as well for XWiki 9.11.8 and later
+    @Deprecated
+    public long getAttachmentSize(XWikiAttachment attachment) throws IOException
+    {
+        try {
+            return attachment.getContentLongSize(xwikiContext);
+        } catch (XWikiException e) {
+            throw new IOException(e);
         }
     }
 

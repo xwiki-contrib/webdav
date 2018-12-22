@@ -105,7 +105,7 @@ public class DavAttachment extends AbstractDavFile
         }
         if (exists()) {
             outputContext.setContentLanguage(attachment.getDoc().getLanguage());
-            outputContext.setContentLength(attachment.getLongSize());
+            outputContext.setContentLength(getContext().getAttachmentSize(attachment));
             outputContext.setContentType(getContext().getMimeType(attachment));
             outputContext.setETag(DavConstants.modificationDateFormat.format(getModificationTime()));
             outputContext.setModificationTime(getModificationTime());
