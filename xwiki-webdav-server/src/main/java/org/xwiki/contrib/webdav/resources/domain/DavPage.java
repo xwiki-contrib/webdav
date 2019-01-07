@@ -191,7 +191,7 @@ public class DavPage extends AbstractDavResource
                 throw new DavException(DavServletResponse.SC_METHOD_NOT_ALLOWED);
             } else {
                 try (InputStream in = inputContext.getInputStream()) {
-                    getContext().addAttachment(doc, in, fName, inputContext.getContentType());
+                    getContext().addAttachment(doc, in, fName, null);
                 } catch (IOException ioe) {
                     throw new DavException(DavServletResponse.SC_INTERNAL_SERVER_ERROR, ioe);
                 }
