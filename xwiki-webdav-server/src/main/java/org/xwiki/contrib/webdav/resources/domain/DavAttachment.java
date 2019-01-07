@@ -109,6 +109,7 @@ public class DavAttachment extends AbstractDavFile
             outputContext.setContentType(getContext().getMimeType(attachment));
             outputContext.setETag(DavConstants.modificationDateFormat.format(getModificationTime()));
             outputContext.setModificationTime(getModificationTime());
+            outputContext.setProperty("Cache-Control", "private, no-cache, no-store, must-revalidate");
             OutputStream out = outputContext.getOutputStream();
             if (null != out) {
                 try (OutputStream outf = out) {
