@@ -103,25 +103,6 @@
           </execution>
         </executions>
       </plugin>
-      <plugin>
-        <groupId>org.revapi</groupId>
-        <artifactId>revapi-maven-plugin</artifactId>
-        <configuration>
-          <analysisConfiguration><![CDATA[ {
-            "revapi": { "ignore": [
-                {
-                   "code": "java.method.numberOfParametersChanged",
-                   "package": "org.xwiki.contrib.webdav.utils",
-                   "classSimpleName": "XWikiDavContext",
-                   "methodName": "addAttachment",
-                   "elementKind": "method",
-                   "justification": "This class is not intended as a public API, and the 'addAttachment' method in its old form was not scaleable"
-                }
-              ]
-            }
-          }]]></analysisConfiguration>
-        </configuration>
-      </plugin>
     </plugins>
   </build>
 </project>
