@@ -140,7 +140,13 @@ public class XWikiDavServlet extends AbstractWebdavServlet
                 webdavResponse.sendError(e);
             }
         } finally {
-            cleanUp(webdavRequest, context);
+            // be very strict in catching throwables in the finally block
+            // so we so not shadow any exceptions from the try block
+            try {
+                cleanUp(webdavRequest, context);
+            } catch (Throwable t) {
+                logger.error("error in finalizing web dav servlet", t);
+            }
         }
     }
 
