@@ -255,7 +255,7 @@ public class XWikiDavContext
      * @param fullDocName
      *            Name of the document.
      * @return True if the user has the given access level for the document in question, false otherwise.
-     * @deprecated use {@link #hasAccess(String, EntityReference) instead
+     * @deprecated use {@link #hasAccess(String, EntityReference)} instead
      */
     @Deprecated
     public boolean hasAccess(String right, String fullDocName)
@@ -372,7 +372,7 @@ public class XWikiDavContext
      * @param attachment
      *            xwiki attachment.
      * @return content as a input stream.
-     * @throws DavException
+     * @throws IOException
      *             if an error occurs while reading the attachment.
      */
     public InputStream getContentInputStream(XWikiAttachment attachment) throws IOException
@@ -848,7 +848,7 @@ public class XWikiDavContext
     /**
      * return the child pages in the old parent/child relationship
      * 
-     * @param parentPage
+     * @param parentDoc
      * @return a list of references to the child pages of the page.
      * @throws DavException
      */
@@ -865,8 +865,7 @@ public class XWikiDavContext
 
     /**
      * @param parentSpace
-     * @param the
-     *            prefix the pages should start with
+     * @param prefix the pages should start with
      * @return a list of the references to the pages of the given space.
      * @throws DavException
      */
