@@ -484,7 +484,7 @@ public class XWikiDavContext
      * @param attachment the attachment whose size is asked for; should not be null
      * @return the size of the attachment in bytes
      * @throws IOException
-     * @Deprecated will be removed when dependency shifts to XWiki 10.x
+     * @deprecated will be removed when dependency shifts to XWiki 10.x
      */
     @Deprecated
     public long getAttachmentSize(XWikiAttachment attachment) throws IOException
